@@ -1,0 +1,10 @@
+groq
+SpeechRecognition
+pyaudio
+python-dotenv
+customtkinter
+pillow
+elevenlabs
+mpv
+pygame
+edge-tts
