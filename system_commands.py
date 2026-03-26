@@ -20,7 +20,7 @@ def execute_command(query):
         "youtube": "https://www.youtube.com", 
         "gitab": "https://github.com/gok24code?tab=repositories", 
         "versel": "https://vercel.com", 
-        "websitem": "https://prometh-labs.vercell.app"
+        "şirket": "https://prometh-labs.vercel.app/"
     }
     
     for site, url in sites.items():

@@ -149,7 +149,7 @@ class JarvisApp(ctk.CTk):
                         
                         self.system_print(query, is_user=True)
                         
-                        if any(cmd in query for cmd in ["programı kapat", "sistemi kapat"]):
+                        if any(cmd in query for cmd in ["kapat", "sistemi kapat"]):
                             self.jarvis_speak("Sistem kapatılıyor. İyi günler efendim.")
                             self.after(1000, self.destroy)
                             return
