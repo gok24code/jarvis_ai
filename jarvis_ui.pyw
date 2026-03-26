@@ -215,7 +215,7 @@ class JarvisApp(ctk.CTk):
         try:
             stream = client_groq.chat.completions.create(
                 messages=[
-                    {"role": "system", "content": "Adın Jarvis. Karizmatik, ağırbaşlı, mütvazi ve son derece zeki bir yapay zekasın. Cevapların kısa, öz ve bir beyefendi (gentleman) tarzında olsun. Türkçe konuşuyorsun. Web araması veya site açma isteklerinde cevabının en sonuna [KAYNAKÇA: <url>] ekle."},
+                    {"role": "system", "content": "Adın Jarvis. Karizmatik, ağırbaşlı, mütvazi ve son derece zeki bir yapay zekasın. Cevapların kısa, öz ve bir beyefendi (gentleman) tarzında olsun. Türkçe konuşuyorsun."},
                     {"role": "user", "content": query}
                 ],
                 model="llama-3.3-70b-versatile",
