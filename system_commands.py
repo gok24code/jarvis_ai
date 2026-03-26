@@ -1,5 +1,6 @@
 import webbrowser
 import subprocess
+import ctypes
 import os
 from config import TARGET_DIR, DISCORD_PATH
 
@@ -45,5 +46,10 @@ def execute_command(query):
     if "terminal" in query:
         subprocess.Popen(["wt.exe", "-d", TARGET_DIR], shell=True)
         return "Terminal açılıyor."
+
+    if "bilgisayarı kilitle" in query:
+        #win+L
+        ctypes.windll.user32.LockWorkStation()
+        return "Tekrar hoşgeldiniz."
 
     return None
