@@ -334,7 +334,7 @@ class JarvisApp(ctk.CTk):
                             audio = recognizer.listen(source, phrase_time_limit=2.5, timeout=None)
                             text = self.transcribe_audio(audio)
                             if text and "jarvis" in text:
-                                self.system_print("AWAKENED", is_ai=True)
+                                self.speak("Buyrun efendim.")
                                 self.in_conversation = True
                                 self.after(0, lambda: threading.Thread(target=self.conversation_loop, daemon=True).start())
                         except: pass
