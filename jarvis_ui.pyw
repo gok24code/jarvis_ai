@@ -38,42 +38,34 @@ class JarvisApp(ctk.CTk):
         super().__init__()
 
         # --- PROFESYONEL HUD AYARLARI ---
-        self.screen_width = self.winfo_screenwidth()
-        self.screen_height = self.winfo_screenheight()
+        self.hud_width = 200
+        self.hud_height = 60
         
-        self.geometry(f"{self.screen_width}x{self.screen_height}+0+0")
+        self.geometry(f"{self.hud_width}x{self.hud_height}+0+0")
         self.overrideredirect(True) 
         
-        # ARKA PLANDA TUTMA
-        self.attributes("-topmost", False)
+        # HER ZAMAN ÜSTTE TUTMA
+        self.attributes("-topmost", True)
         self.config(bg='black')
         self.attributes("-transparentcolor", "black")
-        self.lower() 
 
         # STİL SABİTLERİ (HUD Mavi Tonları)
         self.COLOR_HUD = "#00f3ff"   # Neon Siyan (Sabit Renk)
         self.COLOR_LISTENING = "#007bff"
         self.COLOR_PROCESSING = "#0033ff"
 
-        self.canvas = tk.Canvas(self, width=self.screen_width, height=self.screen_height, 
+        self.canvas = tk.Canvas(self, width=self.hud_width, height=self.hud_height, 
                                bg='black', highlightthickness=0, bd=0)
         self.canvas.pack()
 
-        # Merkez Koordinatları
-        self.cx, self.cy = self.screen_width // 2, self.screen_height // 2
-        
-        # HUD Grafikleri
-        self.base_radius = 120
-        self.current_radius = 120
-        self.main_circle = self.canvas.create_oval(
-            self.cx - self.base_radius, self.cy - self.base_radius,
-            self.cx + self.base_radius, self.cy + self.base_radius,
-            outline=self.COLOR_HUD, width=4
+        # Sol Üst HUD Elementleri
+        self.top_left_text = self.canvas.create_text(
+            5, 20, text="J.A.R.V.I.S.", anchor="nw",
+            fill=self.COLOR_HUD, font=("Consolas", 18, "bold")
         )
-        
-        self.jarvis_text = self.canvas.create_text(
-            self.cx, self.cy, text="JARVIS", 
-            fill=self.COLOR_HUD, font=("Consolas", 32, "bold")
+        self.status_dot = self.canvas.create_oval(
+            170, 25, 185, 40, 
+            fill=self.COLOR_HUD, outline=self.COLOR_HUD
         )
 
         # Durum Değişkenleri
@@ -90,7 +82,6 @@ class JarvisApp(ctk.CTk):
         threading.Thread(target=self.initial_greeting, daemon=True).start()
         threading.Thread(target=self.wake_word_listener, daemon=True).start()
         self.pulse_animation()
-        self.stay_in_background()
         
         # 'r' tuşu ile manuel reset/interrupt
         self.bind_all("<r>", self.manual_interrupt)
@@ -105,11 +96,6 @@ class JarvisApp(ctk.CTk):
                 pygame.mixer.music.stop()
             except: pass
 
-    def stay_in_background(self):
-        """Uygulamayı sürekli en arkada tutar."""
-        self.lower()
-        self.after(2000, self.stay_in_background)
-
     def initial_greeting(self):
         time.sleep(1.5)
         self.speak("Sistem çevrimiçi efendim. Arayüz yüklendi. Hitap bekleniyor.")
@@ -123,28 +109,22 @@ class JarvisApp(ctk.CTk):
         except: return None
 
     def pulse_animation(self):
-        """Bekleme modunda hafif parlama, konuşurken büyüme efekti"""
+        """Bekleme modunda hafif parlama efekti (sadece durum noktası için)"""
+        status_color = self.COLOR_HUD
         if self.is_speaking:
-            # Konuşurken halkayı büyüt
-            target_radius = self.base_radius + 30
-            self.update_circle_size(target_radius)
+            status_color = self.COLOR_LISTENING
+        elif self.is_processing:
+            status_color = self.COLOR_PROCESSING
+        elif self.in_conversation:
+            status_color = self.COLOR_LISTENING
         elif not self.is_processing and not self.in_conversation:
-            # Bekleme modunda nefes alıp verme
-            current_color = self.canvas.itemcget(self.main_circle, "outline")
+            # Bekleme modunda nefes alıp verme efekti
+            current_color = self.canvas.itemcget(self.status_dot, "fill")
             target_color = "#004455" if current_color == self.COLOR_HUD else self.COLOR_HUD
-            self.canvas.itemconfig(self.main_circle, outline=target_color)
-            self.canvas.itemconfig(self.jarvis_text, fill=target_color)
-            self.update_circle_size(self.base_radius)
-        else:
-            self.update_circle_size(self.base_radius)
+            status_color = target_color
             
+        self.canvas.itemconfig(self.status_dot, fill=status_color, outline=status_color)
         self.after(1000, self.pulse_animation)
-
-    def update_circle_size(self, radius):
-        """Halkanın boyutunu günceller."""
-        self.canvas.coords(self.main_circle, 
-                           self.cx - radius, self.cy - radius, 
-                           self.cx + radius, self.cy + radius)
 
     def system_print(self, text, is_user=False, is_ai=False):
         timestamp = time.strftime("%H:%M:%S")
