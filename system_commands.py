@@ -51,5 +51,7 @@ def execute_command(query):
         #win+L
         ctypes.windll.user32.LockWorkStation()
         return "Tekrar hoşgeldiniz."
-
+    if "temizlik" in query:
+        subprocess.Popen("cleanmgr.exe")
+        return "Sistemin tozunu bir alalım bakalım. Temizlik aracı çalıştırılıyor."
     return None
