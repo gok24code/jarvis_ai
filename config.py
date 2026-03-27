@@ -19,11 +19,13 @@ COLOR_HUD = "#00f3ff"
 COLOR_LISTENING = "#007bff"
 COLOR_PROCESSING = "#0033ff"
 HUD_WIDTH = 200
-HUD_HEIGHT = 60
+HUD_HEIGHT = 80
 
 # System Paths
 TARGET_DIR = r"C:/Users/gok2/Desktop/git"
 DISCORD_PATH = r"C:\Users\gok2\AppData\Local\Discord\Update.exe"
+SPOTIFY_PATH = r"C:\Users\gok2\AppData\Roaming\Spotify\Spotify.exe"
+BLENDER_PATH = r"C:\Program Files\Blender Foundation\Blender 5.0\blender.exe"
 
 # Initialize Pygame Mixer
 pygame.mixer.pre_init(44100, -16, 2, 512)

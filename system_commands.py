@@ -2,7 +2,9 @@ import webbrowser
 import subprocess
 import ctypes
 import os
-from config import TARGET_DIR, DISCORD_PATH
+from config import TARGET_DIR, DISCORD_PATH, SPOTIFY_PATH, BLENDER_PATH
+
+import time
 
 def open_url(url):
     webbrowser.open(url)
@@ -47,11 +49,25 @@ def execute_command(query):
         subprocess.Popen(["wt.exe", "-d", TARGET_DIR], shell=True)
         return "Terminal açılıyor."
 
-    if "bilgisayarı kilitle" in query:
+    if "sistemi kilitle" in query:
         #win+L
         ctypes.windll.user32.LockWorkStation()
         return "Tekrar hoşgeldiniz."
     if "temizlik" in query:
         subprocess.Popen("cleanmgr.exe")
         return "Sistemin tozunu bir alalım bakalım. Temizlik aracı çalıştırılıyor."
+    if any(k in query for k in ["spotify", "müzik", "şarkı"]) and ("aç" in query or "çal" in query):
+        os.startfile("spotify:")
+        # Uygulamanın açılması için kısa bir bekleme ve play tuşu simülasyonu
+        time.sleep(2)
+        ctypes.windll.user32.keybd_event(0xB3, 0, 0, 0) # VK_MEDIA_PLAY_PAUSE
+        return "Playlist çalınıyor efendim."
+
+    if any(k in query for k in ["blender", "tasarım","çizim"]) and ("aç" in query or "başlat" in query):
+        subprocess.Popen([BLENDER_PATH])
+        return "Blender açılıyor efendim. Bugün ne üstünde çalışacaksınız?"
+
+    if any(k in query for k in ["müziği durdur", "şarkıyı durdur", "müziği duraklat", "şarkıyı duraklat"]):
+        ctypes.windll.user32.keybd_event(0xB3, 0, 0, 0)
+        return "Müzik duraklatıldı."
     return None

@@ -30,7 +30,7 @@ class JarvisApp(ctk.CTk):
             fill=COLOR_HUD, font=("Consolas", 18, "bold")
         )
         self.status_dot = self.canvas.create_oval(
-            175, 25, 190, 40, 
+            175, 30, 190, 45, 
             fill=COLOR_HUD, outline=COLOR_HUD
         )
 
@@ -45,13 +45,55 @@ class JarvisApp(ctk.CTk):
         self.system_print(f"HUD BACKGROUND PROTOCOL ACTIVE.")
         
         # Arka Plan İşlemleri
+        self.create_visualizer()
         threading.Thread(target=self.initial_greeting, daemon=True).start()
         threading.Thread(target=self.wake_word_listener, daemon=True).start()
         self.pulse_animation()
+        self.update_visualizer()
         
         # 'r' tuşu ile manuel reset/interrupt
         self.bind_all("<r>", self.manual_interrupt)
         self.bind_all("<R>", self.manual_interrupt)
+
+    def create_visualizer(self):
+        self.bars = []
+        bar_count = 12
+        bar_width = 4
+        gap = 3
+        start_x = 35
+        for i in range(bar_count):
+            x = start_x + i * (bar_width + gap)
+            bar = self.canvas.create_rectangle(
+                x, 65, x + bar_width, 68,
+                fill=COLOR_HUD, outline=""
+            )
+            self.bars.append(bar)
+
+    def update_visualizer(self):
+        import random
+        status_color = COLOR_HUD
+        
+        if self.is_speaking:
+            status_color = COLOR_LISTENING
+        elif self.is_processing:
+            status_color = COLOR_PROCESSING
+        elif self.in_conversation:
+            status_color = COLOR_LISTENING
+
+        for bar in self.bars:
+            height = 2
+            if self.is_speaking or self.in_conversation:
+                height = random.randint(5, 25)
+            elif self.is_processing:
+                height = random.randint(3, 12)
+            else:
+                height = random.randint(1, 3)
+            
+            x1, _, x2, _ = self.canvas.coords(bar)
+            self.canvas.coords(bar, x1, 65 - height, x2, 68)
+            self.canvas.itemconfig(bar, fill=status_color)
+        
+        self.after(80, self.update_visualizer)
 
     def manual_interrupt(self, event=None):
         if self.in_conversation or self.is_speaking or self.is_processing:
@@ -149,8 +191,8 @@ class JarvisApp(ctk.CTk):
                         
                         self.system_print(query, is_user=True)
                         
-                        if any(cmd in query for cmd in ["kapat", "sistemi kapat"]):
-                            self.jarvis_speak("Sistem kapatılıyor. İyi günler efendim.")
+                        if any(cmd in query for cmd in ["kapat", "sistemini kapat"]):
+                            self.jarvis_speak("Jarvis: Versiyon bir nokta on kapatılıyor. İyi günler efendim.")
                             self.after(1000, self.destroy)
                             return
                         if any(cmd in query for cmd in ["beklemede kal", "bekle", "güle güle"]):
