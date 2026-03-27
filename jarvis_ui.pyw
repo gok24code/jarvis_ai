@@ -14,17 +14,20 @@ class JarvisApp(ctk.CTk):
         super().__init__()
 
         # UI Ayarları
-        self.geometry(f"{HUD_WIDTH}x{HUD_HEIGHT}+0+0")
+        self.geometry(f"{HUD_WIDTH}x{HUD_HEIGHT}+10+10") # Köşeden biraz içeride
         self.overrideredirect(True) 
         self.attributes("-topmost", True)
         self.config(bg='black')
         self.attributes("-transparentcolor", "black")
+        
+        # Görev çubuğundan gizleme işlemini pencere oluştuktan sonra yap
+        self.after(100, self.hide_from_taskbar)
 
         self.canvas = tk.Canvas(self, width=HUD_WIDTH, height=HUD_HEIGHT, 
                                bg='black', highlightthickness=0, bd=0)
         self.canvas.pack()
 
-        # HUD Elementleri
+        # ... (HUD Elementleri aynı)
         self.top_left_text = self.canvas.create_text(
             5, 20, text="J.A.R.V.I.S.", anchor="nw",
             fill=COLOR_HUD, font=("Consolas", 18, "bold")
@@ -54,6 +57,27 @@ class JarvisApp(ctk.CTk):
         # 'r' tuşu ile manuel reset/interrupt
         self.bind_all("<r>", self.manual_interrupt)
         self.bind_all("<R>", self.manual_interrupt)
+
+    def hide_from_taskbar(self):
+        try:
+            import ctypes
+            set_window_long = ctypes.windll.user32.SetWindowLongPtrW
+            get_window_long = ctypes.windll.user32.GetWindowLongPtrW
+            GWL_EXSTYLE = -20
+            WS_EX_TOOLWINDOW = 0x00000080
+            
+            # Ana pencere ID'sini al
+            hwnd = ctypes.windll.user32.GetParent(self.winfo_id())
+            if hwnd == 0: hwnd = self.winfo_id()
+            
+            style = get_window_long(hwnd, GWL_EXSTYLE)
+            style |= WS_EX_TOOLWINDOW
+            set_window_long(hwnd, GWL_EXSTYLE, style)
+            
+            # Değişikliği zorla uygula
+            self.attributes("-topmost", True)
+        except Exception as e:
+            log(f"Taskbar hide error: {e}")
 
     def create_visualizer(self):
         self.bars = []

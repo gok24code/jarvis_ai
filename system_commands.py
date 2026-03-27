@@ -2,7 +2,7 @@ import webbrowser
 import subprocess
 import ctypes
 import os
-from config import TARGET_DIR, DISCORD_PATH, SPOTIFY_PATH, BLENDER_PATH
+from config import TARGET_DIR, DISCORD_PATH, SPOTIFY_PATH, BLENDER_PATH, HOLOGRAM_PATH
 
 import time
 
@@ -18,7 +18,7 @@ def search_web(query):
     return None
 
 def execute_command(query):
-    # Web Siteleri
+    # ... (diğer komutlar aynı kalıyor)
     sites = {
         "youtube": "https://www.youtube.com", 
         "gitab": "https://github.com/gok24code?tab=repositories", 
@@ -65,7 +65,10 @@ def execute_command(query):
 
     if any(k in query for k in ["blender", "tasarım","çizim"]) and ("aç" in query or "başlat" in query):
         subprocess.Popen([BLENDER_PATH])
-        return "Blender açılıyor efendim. Bugün ne üstünde çalışacaksınız?"
+        # Hologram projesini de başlat
+        hologram_dir = os.path.dirname(HOLOGRAM_PATH)
+        subprocess.Popen(f'python "{HOLOGRAM_PATH}"', cwd=hologram_dir, shell=True)
+        return "Blender ve Hologram arayüzü açılıyor efendim. Bugün ne üstünde çalışacaksınız?"
 
     if any(k in query for k in ["müziği durdur", "şarkıyı durdur", "müziği duraklat", "şarkıyı duraklat"]):
         ctypes.windll.user32.keybd_event(0xB3, 0, 0, 0)

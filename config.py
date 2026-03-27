@@ -26,6 +26,7 @@ TARGET_DIR = r"C:/Users/gok2/Desktop/git"
 DISCORD_PATH = r"C:\Users\gok2\AppData\Local\Discord\Update.exe"
 SPOTIFY_PATH = r"C:\Users\gok2\AppData\Roaming\Spotify\Spotify.exe"
 BLENDER_PATH = r"C:\Program Files\Blender Foundation\Blender 5.0\blender.exe"
+HOLOGRAM_PATH = os.path.join(TARGET_DIR, "hologram_editing", "main.py")
 
 # Initialize Pygame Mixer
 pygame.mixer.pre_init(44100, -16, 2, 512)
