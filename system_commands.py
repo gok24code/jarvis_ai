@@ -38,8 +38,38 @@ def execute_command(query):
         return "Discord açılıyor efendim."
 
     if "gemini" in query and "terminal" in query:
-        os.system(f'start cmd /k "cd /d {TARGET_DIR} && gemini"')
-        return "Gemini başlatılıyor."
+        from ai_brain import generate_gemini_prompt
+        project_desc = query.replace("gemini", "").replace("terminal", "").replace("aç", "").replace("yap", "").replace("projesi", "").strip()
+        
+        if not project_desc or len(project_desc) < 3:
+            os.system(f'start cmd /k "cd /d {TARGET_DIR} && gemini"')
+            return "Gemini terminali başlatılıyor efendim."
+        
+        # AI ile klasör ismi ve teknik prompt oluştur
+        ai_output = generate_gemini_prompt(project_desc)
+        
+        # Basit ayrıştırma (parsing)
+        try:
+            folder_line = [l for l in ai_output.split("\n") if "FOLDER_NAME:" in l][0]
+            prompt_line = [l for l in ai_output.split("\n") if "PROMPT:" in l][0]
+            
+            folder_name = folder_line.split("FOLDER_NAME:")[1].strip()
+            detailed_prompt = prompt_line.split("PROMPT:")[1].strip()
+        except:
+            folder_name = "new-project"
+            detailed_prompt = project_desc
+
+        # Proje klasörünü oluştur
+        new_project_path = os.path.join(TARGET_DIR, folder_name)
+        if not os.path.exists(new_project_path):
+            os.makedirs(new_project_path)
+            
+        # Tırnak işaretlerini terminal uyumluluğu için düzenle
+        escaped_prompt = detailed_prompt.replace('"', '\"')
+        
+        # Gemini'yi YENİ klasörün içinde başlat
+        os.system(f'start cmd /k "cd /d {new_project_path} && gemini \"{escaped_prompt}\""')
+        return f"Efendim, {folder_name} klasörü oluşturuldu ve Gemini'ye talimatlar iletildi."
         
     if "editör" in query:
         subprocess.Popen(["code", TARGET_DIR], shell=True)
