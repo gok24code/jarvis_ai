@@ -52,7 +52,7 @@ def execute_command(query):
     if "sistemi kilitle" in query:
         #win+L
         ctypes.windll.user32.LockWorkStation()
-        return "Tekrar hoşgeldiniz."
+        return "uygulandı."
     if "temizlik" in query:
         subprocess.Popen("cleanmgr.exe")
         return "Sistemin tozunu bir alalım bakalım. Temizlik aracı çalıştırılıyor."
