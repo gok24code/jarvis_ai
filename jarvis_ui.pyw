@@ -1,71 +1,37 @@
 import customtkinter as ctk
 import speech_recognition as sr
-from elevenlabs.client import ElevenLabs
-import os
 import threading
-import pygame
-import tempfile
 import time
 import re
-import webbrowser
-import subprocess
-import asyncio
-import edge_tts
-from groq import Groq
-from dotenv import load_dotenv
 import tkinter as tk
-
-# --- DEBUG AYARI ---
-DEBUG = True
-
-def log(message):
-    if DEBUG:
-        print(f"[SYSTEM_LOG] {message}")
-
-load_dotenv()
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
-
-client_groq = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
-client_eleven = ElevenLabs(api_key=ELEVENLABS_API_KEY) if ELEVENLABS_API_KEY else None
-
-# Pygame Mixer Hazırlığı
-pygame.mixer.pre_init(44100, -16, 2, 512)
-pygame.mixer.init()
+from config import *
+from audio_handler import find_mic_index, transcribe_audio, speak
+from ai_brain import get_ai_response_stream
+from system_commands import execute_command, search_web, open_url
 
 class JarvisApp(ctk.CTk):
     def __init__(self):
         super().__init__()
 
-        # --- PROFESYONEL HUD AYARLARI ---
-        self.hud_width = 200
-        self.hud_height = 60
-        
-        self.geometry(f"{self.hud_width}x{self.hud_height}+0+0")
+        # UI Ayarları
+        self.geometry(f"{HUD_WIDTH}x{HUD_HEIGHT}+0+0")
         self.overrideredirect(True) 
-        
-        # HER ZAMAN ÜSTTE TUTMA
         self.attributes("-topmost", True)
         self.config(bg='black')
         self.attributes("-transparentcolor", "black")
 
-        # STİL SABİTLERİ (HUD Mavi Tonları)
-        self.COLOR_HUD = "#00f3ff"   # Neon Siyan (Sabit Renk)
-        self.COLOR_LISTENING = "#007bff"
-        self.COLOR_PROCESSING = "#0033ff"
-
-        self.canvas = tk.Canvas(self, width=self.hud_width, height=self.hud_height, 
+        self.canvas = tk.Canvas(self, width=HUD_WIDTH, height=HUD_HEIGHT, 
                                bg='black', highlightthickness=0, bd=0)
         self.canvas.pack()
 
-        # Sol Üst HUD Elementleri
+        # HUD Elementleri
         self.top_left_text = self.canvas.create_text(
             5, 20, text="J.A.R.V.I.S.", anchor="nw",
-            fill=self.COLOR_HUD, font=("Consolas", 18, "bold")
+            fill=COLOR_HUD, font=("Consolas", 18, "bold")
         )
         self.status_dot = self.canvas.create_oval(
-            170, 25, 185, 40, 
-            fill=self.COLOR_HUD, outline=self.COLOR_HUD
+            175, 25, 190, 40, 
+            fill=COLOR_HUD, outline=COLOR_HUD
         )
 
         # Durum Değişkenleri
@@ -75,7 +41,7 @@ class JarvisApp(ctk.CTk):
         self.interrupted = False
         self.stop_event = threading.Event()
         
-        self.mic_index = self.find_steelseries_mic()
+        self.mic_index = find_mic_index()
         self.system_print(f"HUD BACKGROUND PROTOCOL ACTIVE.")
         
         # Arka Plan İşlemleri
@@ -88,40 +54,27 @@ class JarvisApp(ctk.CTk):
         self.bind_all("<R>", self.manual_interrupt)
 
     def manual_interrupt(self, event=None):
-        """Kullanıcı 'r' tuşuna bastığında konuşmayı ve işlemi keser."""
         if self.in_conversation or self.is_speaking or self.is_processing:
             self.system_print("MANUAL RESET INTERRUPT", is_ai=True)
             self.interrupted = True
-            try:
-                pygame.mixer.music.stop()
-            except: pass
+            import pygame
+            pygame.mixer.music.stop()
 
     def initial_greeting(self):
         time.sleep(1.5)
-        self.speak("Sistem çevrimiçi efendim. Arayüz yüklendi. Hitap bekleniyor.")
-
-    def find_steelseries_mic(self):
-        try:
-            mic_list = sr.Microphone.list_microphone_names()
-            for index, name in enumerate(mic_list):
-                if "steelseries" in name.lower(): return index
-            return None
-        except: return None
+        self.jarvis_speak("Sistem çevrimiçi efendim. Arayüz yüklendi. Hitap bekleniyor.")
 
     def pulse_animation(self):
-        """Bekleme modunda hafif parlama efekti (sadece durum noktası için)"""
-        status_color = self.COLOR_HUD
+        status_color = COLOR_HUD
         if self.is_speaking:
-            status_color = self.COLOR_LISTENING
+            status_color = COLOR_LISTENING
         elif self.is_processing:
-            status_color = self.COLOR_PROCESSING
+            status_color = COLOR_PROCESSING
         elif self.in_conversation:
-            status_color = self.COLOR_LISTENING
+            status_color = COLOR_LISTENING
         elif not self.is_processing and not self.in_conversation:
-            # Bekleme modunda nefes alıp verme efekti
             current_color = self.canvas.itemcget(self.status_dot, "fill")
-            target_color = "#004455" if current_color == self.COLOR_HUD else self.COLOR_HUD
-            status_color = target_color
+            status_color = "#004455" if current_color == COLOR_HUD else COLOR_HUD
             
         self.canvas.itemconfig(self.status_dot, fill=status_color, outline=status_color)
         self.after(1000, self.pulse_animation)
@@ -133,178 +86,88 @@ class JarvisApp(ctk.CTk):
         elif is_ai: prefix = "[J.A.R.V.I.S.]"
         print(f"<{timestamp}> {prefix} {text}")
 
-    def speak(self, text):
-        # URL Kontrolü (Cevabın içinde [OPEN_URL: ...] varsa aç)
+    def jarvis_speak(self, text):
+        # URL Kontrolü
         url_match = re.search(r'\[OPEN_URL:\s*(.*?)\]', text)
         clean_text = text
         if url_match:
-            url = url_match.group(1).strip()
-            webbrowser.open(url)
+            open_url(url_match.group(1).strip())
             clean_text = re.sub(r'\[OPEN_URL:\s*.*?\]', '', text).strip()
 
-        if not clean_text.strip(): return
-
+        if not clean_text: return
+        
         self.system_print(clean_text, is_ai=True)
         self.is_speaking = True
         self.interrupted = False
-        
-        try:
-            pygame.mixer.music.stop()
-            pygame.mixer.music.unload()
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp_file:
-                tmp_path = tmp_file.name
-
-            try:
-                if client_eleven:
-                    audio_iterator = client_eleven.text_to_speech.convert(
-                        text=clean_text,
-                        voice_id="pNInz6obpgDQGcFmaJgB",
-                        model_id="eleven_multilingual_v2",
-                        output_format="mp3_44100_128"
-                    )
-                    with open(tmp_path, "wb") as f:
-                        for chunk in audio_iterator:
-                            if chunk: f.write(chunk)
-                else: raise Exception()
-            except:
-                # Ahmet sesini daha ağırbaşlı ve karizmatik (kalın/yavaş) hale getiriyoruz
-                communicate = edge_tts.Communicate(clean_text, "tr-TR-AhmetNeural", rate="-5%", pitch="-10Hz")
-                asyncio.run(communicate.save(tmp_path))
-
-            if os.path.exists(tmp_path) and os.path.getsize(tmp_path) > 0:
-                pygame.mixer.music.load(tmp_path)
-                pygame.mixer.music.play()
-                
-                # 'r' tuşu ile kesilmeyi kontrol et
-                while pygame.mixer.music.get_busy() and not self.interrupted:
-                    pygame.time.Clock().tick(10)
-                
-                pygame.mixer.music.stop()
-                pygame.mixer.music.unload()
-                time.sleep(0.1)
-                try: os.remove(tmp_path)
-                except: pass
-        except Exception as e:
-            self.system_print(f"AUDIO_ERR: {e}")
-            
+        speak(clean_text, lambda: self.interrupted)
         self.is_speaking = False
 
-    def process_and_speak_stream(self, query):
+    def process_query(self, query):
         self.is_processing = True
-        current_sentence = ""
-        try:
-            stream = client_groq.chat.completions.create(
-                messages=[
-                    {"role": "system", "content": "Adın Jarvis. Karizmatik, ağırbaşlı, mütvazi ve son derece zeki bir yapay zekasın. Cevapların kısa, öz ve bir beyefendi (gentleman) tarzında olsun. Türkçe konuşuyorsun."},
-                    {"role": "user", "content": query}
-                ],
-                model="llama-3.3-70b-versatile",
-                stream=True,
-            )
-            for chunk in stream:
-                if self.interrupted: break
-                content = chunk.choices[0].delta.content
-                if content:
-                    current_sentence += content
-                    if any(p in content for p in [".", "!", "?", "\n"]):
-                        clean_sent = current_sentence.strip()
-                        if len(clean_sent) > 2:
-                            self.speak(clean_sent)
-                        current_sentence = ""
-            if current_sentence.strip() and not self.interrupted:
-                self.speak(current_sentence.strip())
-        except Exception as e:
-            self.system_print(f"STREAM_ERR: {e}")
+        
+        # Önce sistem komutlarını kontrol et
+        response = execute_command(query)
+        if response:
+            self.jarvis_speak(response)
+        elif any(kw in query for kw in ["ara", "bul", "nedir", "kimdir"]):
+            term = search_web(query)
+            if term: self.jarvis_speak(f"İnternette {term} araştırılıyor.")
+        else:
+            # AI Brain'e sor
+            current_sentence = ""
+            stream = get_ai_response_stream(query)
+            if stream:
+                for chunk in stream:
+                    if self.interrupted: break
+                    content = chunk.choices[0].delta.content
+                    if content:
+                        current_sentence += content
+                        if any(p in content for p in [".", "!", "?", "\n"]):
+                            clean_sent = current_sentence.strip()
+                            if len(clean_sent) > 2:
+                                self.jarvis_speak(clean_sent)
+                            current_sentence = ""
+                if current_sentence.strip() and not self.interrupted:
+                    self.jarvis_speak(current_sentence.strip())
+        
         self.is_processing = False
 
     def conversation_loop(self):
         recognizer = sr.Recognizer()
         recognizer.pause_threshold = 0.8
-        recognizer.energy_threshold = 4000  # Klavye ve çevre seslerini filtrelemek için yükseltildi
+        recognizer.energy_threshold = 4000
         
         try:
             with sr.Microphone(device_index=self.mic_index) as source:
                 recognizer.adjust_for_ambient_noise(source, duration=1.0)
-                
                 while self.in_conversation:
                     try:
                         audio = recognizer.listen(source, timeout=None, phrase_time_limit=10)
-                        query = self.transcribe_audio(audio)
-                        
+                        query = transcribe_audio(audio)
                         if not query or len(query) < 3: continue
-                        if query in ["m.k.", "m.k", "mk", "altyazı", "ALTYAZI M.K.", "M.K.","ALTYAZI","M.","K.", "teşekkür ederim"]: continue
+                        if query in ["m.k.", "mk", "altyazı", "teşekkür ederim"]: continue
                         
                         self.system_print(query, is_user=True)
+                        
+                        if any(cmd in query for cmd in ["kapat", "sistemi kapat"]):
+                            self.jarvis_speak("Sistem kapatılıyor. İyi günler efendim.")
+                            self.after(1000, self.destroy)
+                            return
+                        if any(cmd in query for cmd in ["beklemede kal", "bekle", "güle güle"]):
+                            self.jarvis_speak("Sistem bekleme moduna alınıyor.")
+                            self.in_conversation = False
+                            break
+                        
+                        self.process_query(query)
                     except Exception as e:
                         log(f"Listen Error: {e}")
                         continue
-
-                    if any(cmd in query for cmd in ["programı kapat", "uygulamayı kapat", "sistemi kapat"]):
-                        self.speak("Sistem kapatılıyor. İyi günler efendim.")
-                        self.after(1000, self.destroy)
-                        return
-
-                    if any(cmd in query for cmd in ["beklemede kal", "bekle", "güle güle"]):
-                        self.speak("Sistem bekleme moduna alınıyor.")
-                        self.in_conversation = False
-                        break
-                    
-                    # --- WEB VE YEREL KOMUTLAR ---
-                    target_dir = r"C:/Users/gok2/Desktop/git"
-                    discord_exe = r"C:\Users\gok2\AppData\Local\Discord\Update.exe"
-                    
-                    if any(kw in query for kw in ["ara", "bul", "nedir", "kimdir"]):
-                        search_term = query.replace("ara", "").replace("bul", "").replace("internette", "").strip()
-                        if search_term:
-                            url = f"https://duckduckgo.com/?q={search_term}"
-                            self.speak(f"İnternette {search_term} araştırılıyor.")
-                            webbrowser.open(url)
-                            continue
-
-                    sites = {"youtube": "https://www.youtube.com", "gitab": "https://github.com/gok24code?tab=repositories", "versel": "https://vercel.com", "websitem": "https://prometh-labs.vercell.app"}
-                    found_site = False
-                    for site, url in sites.items():
-                        if site in query and ("aç" in query or "git" in query):
-                            self.speak(f"{site.capitalize()} açılıyor efendim.")
-                            webbrowser.open(url); found_site = True; break
-                    if found_site: continue
-
-                    if "discord" in query and "aç" in query:
-                        self.speak("Discord açılıyor efendim.")
-                        # Access Denied hatasını önlemek için shell=True ve start komutu kullanıyoruz
-                        cmd = f'start "" "{discord_exe}" --processStart Discord.exe'
-                        subprocess.Popen(cmd, shell=True)
-                        continue
-
-                    if "gemini" in query and "terminal" in query:
-                        self.speak("Gemini başlatılıyor."); os.system(f'start cmd /k "cd /d {target_dir} && gemini"'); continue
-                    if "editör" in query:
-                        self.speak("Editör açılıyor."); subprocess.Popen(["code", target_dir], shell=True); continue
-                    if "terminal" in query:
-                        self.speak("Terminal açılıyor."); subprocess.Popen(["wt.exe", "-d", target_dir], shell=True); continue
-
-                    self.process_and_speak_stream(query)
         except Exception as e:
             log(f"Mic Error: {e}")
-            
-    def transcribe_audio(self, audio_data):
-        try:
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_audio:
-                tmp_audio.write(audio_data.get_wav_data())
-                tmp_audio_path = tmp_audio.name
-            with open(tmp_audio_path, "rb") as file:
-                transcription = client_groq.audio.transcriptions.create(
-                    file=(tmp_audio_path, file.read()),
-                    model="whisper-large-v3-turbo",
-                    language="tr", response_format="text"
-                )
-            if os.path.exists(tmp_audio_path): os.remove(tmp_audio_path)
-            return transcription.strip().lower()
-        except: return None
 
     def wake_word_listener(self):
         recognizer = sr.Recognizer()
-        recognizer.energy_threshold = 5000 # Bekleme modunda daha yüksek eşik
+        recognizer.energy_threshold = 5000
         while not self.stop_event.is_set():
             if not self.in_conversation and not self.is_processing and not self.is_speaking:
                 try:
@@ -312,11 +175,11 @@ class JarvisApp(ctk.CTk):
                         recognizer.adjust_for_ambient_noise(source, duration=0.5)
                         try:
                             audio = recognizer.listen(source, phrase_time_limit=2.5, timeout=None)
-                            text = self.transcribe_audio(audio)
+                            text = transcribe_audio(audio)
                             if text and "jarvis" in text:
-                                self.speak("Buyrun efendim.")
+                                self.jarvis_speak("Buyrun efendim.")
                                 self.in_conversation = True
-                                self.after(0, lambda: threading.Thread(target=self.conversation_loop, daemon=True).start())
+                                threading.Thread(target=self.conversation_loop, daemon=True).start()
                         except: pass
                 except: time.sleep(2)
 
