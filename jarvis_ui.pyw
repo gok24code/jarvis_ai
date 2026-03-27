@@ -64,7 +64,7 @@ class JarvisApp(ctk.CTk):
         for i in range(bar_count):
             x = start_x + i * (bar_width + gap)
             bar = self.canvas.create_rectangle(
-                x, 65, x + bar_width, 68,
+                x, 60, x + bar_width, 64,
                 fill=COLOR_HUD, outline=""
             )
             self.bars.append(bar)
