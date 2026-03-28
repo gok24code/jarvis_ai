@@ -33,7 +33,7 @@ Proje için gerekli kütüphaneleri yüklemek için:
 pip install -r requirements.txt
 ```
 
-*Not: `pyaudio` yüklemesi sırasında sorun yaşarsanız, Windows için uygun `.whl` dosyasını kullanmanız gerekebilir.*
+_Not: `pyaudio` yüklemesi sırasında sorun yaşarsanız, Windows için uygun `.whl` dosyasını kullanmanız gerekebilir._
 
 ## ⚙️ Kurulum ve Yapılandırma
 
@@ -65,4 +65,7 @@ pip install -r requirements.txt
 - **"Sistemi Kapat"**: Uygulamayı tamamen sonlandırır.
 
 ---
-*Geliştiren: [gok24code](https://github.com/gok24code)*
+
+## branchlerden en günceli main branchidir.
+
+_Geliştiren: [gok24code](https://github.com/gok24code)_
