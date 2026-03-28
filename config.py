@@ -48,6 +48,9 @@ HOLOGRAM_PATH = os.path.join(TARGET_DIR, "hologram_editing", "main.py")
 pygame.mixer.pre_init(44100, -16, 2, 512)
 pygame.mixer.init()
 
+DEFAULT_VOLUME = 0.5  # %50 varsayılan ses seviyesi
+pygame.mixer.music.set_volume(DEFAULT_VOLUME)
+
 DEBUG = True
 
 def log(message):

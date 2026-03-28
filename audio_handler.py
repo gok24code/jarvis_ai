@@ -72,3 +72,18 @@ def speak(text, interrupt_check_callback):
             except: pass
     except Exception as e:
         log(f"AUDIO_ERR: {e}")
+
+class MusicPlayer:
+    def __init__(self):
+        self.volume = 0.5
+
+    def adjust_volume(self, volume_level):
+        """Ses seviyesini 0.0 ile 1.0 arasında ayarlar."""
+        try:
+            self.volume = max(0.0, min(1.0, float(volume_level)))
+            pygame.mixer.music.set_volume(self.volume)
+            log(f"SES_SEVIYESI: %{int(self.volume * 100)}")
+            return self.volume
+        except Exception as e:
+            log(f"VOLUME_ADJUST_ERR: {e}")
+            return None

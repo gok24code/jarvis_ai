@@ -14,12 +14,12 @@ from system_commands import execute_command, search_web, open_url
 from telegram import Update
 from telegram.ext import Application, MessageHandler, filters, ContextTypes
 from pydub import AudioSegment
-from dotenv import load_dotenv
+from system_commands import execute_command, search_web, open_url, volume_manager
 
 class JarvisApp(ctk.CTk):
     def __init__(self):
         super().__init__()
-        
+
         self.load_env_vars()
 
         # UI Ayarları
@@ -28,7 +28,7 @@ class JarvisApp(ctk.CTk):
         self.attributes("-topmost", True)
         self.config(bg='black')
         self.attributes("-transparentcolor", "black")
-        
+
         self.after(100, self.hide_from_taskbar)
 
         self.canvas = tk.Canvas(self, width=HUD_WIDTH, height=HUD_HEIGHT, 
@@ -44,7 +44,20 @@ class JarvisApp(ctk.CTk):
             fill=COLOR_HUD, outline=COLOR_HUD
         )
 
+        # Sağ Tık Menüsü (Ses Kontrolü için)
+        self.menu = tk.Menu(self, tearoff=0, bg="black", fg=COLOR_HUD, activebackground=COLOR_HUD, activeforeground="black")
+        self.menu.add_command(label="Ses %100", command=lambda: volume_manager.set_volume(100))
+        self.menu.add_command(label="Ses %70", command=lambda: volume_manager.set_volume(70))
+        self.menu.add_command(label="Ses %50", command=lambda: volume_manager.set_volume(50))
+        self.menu.add_command(label="Ses %30", command=lambda: volume_manager.set_volume(30))
+        self.menu.add_command(label="Sessiz", command=lambda: volume_manager.set_volume(0))
+        self.menu.add_separator()
+        self.menu.add_command(label="Çıkış", command=self.destroy)
+
+        self.bind("<Button-3>", self.show_menu)
+
         # Durum Değişkenleri
+
         self.is_processing = False
         self.in_conversation = False
         self.is_speaking = False
@@ -156,6 +169,9 @@ class JarvisApp(ctk.CTk):
             ctypes.windll.user32.SetWindowLongPtrW(hwnd, -20, style)
             self.attributes("-topmost", True)
         except: pass
+
+    def show_menu(self, event):
+        self.menu.post(event.x_root, event.y_root)
 
     def create_visualizer(self):
         self.bars = []

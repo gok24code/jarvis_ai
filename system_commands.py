@@ -18,7 +18,18 @@ def search_web(query):
     return None
 
 import threading
-from audio_handler import speak
+from audio_handler import speak, MusicPlayer
+
+class VolumeController:
+    def __init__(self):
+        self.player = MusicPlayer()
+
+    def set_volume(self, level):
+        """0-100 arası bir değer bekler ve bunu adjust_volume'a iletir."""
+        normalized_level = level / 100.0
+        return self.player.adjust_volume(normalized_level)
+
+volume_manager = VolumeController()
 
 def run_gemini_integrated(project_path, prompt, folder_name):
     def target():
@@ -276,6 +287,26 @@ def execute_command(query):
     if any(k in query for k in ["yeniden başlat", "sistemi yeniden başlat"]):
         subprocess.Popen(["shutdown", "/r", "/t", "5"], shell=True)
         return "Sistem beş saniye içinde yeniden başlatılacak efendim."
+
+    # Ses Kontrolü
+    if "ses" in query:
+        import re
+        # "sesi yüzde 50 yap" veya "sesi 50 yap" gibi durumları yakala
+        numbers = re.findall(r'\d+', query)
+        if numbers:
+            level = int(numbers[0])
+            volume_manager.set_volume(level)
+            return f"Ses seviyesi yüzde {level} olarak ayarlandı efendim."
+        
+        if "aç" in query or "artır" in query or "yükselt" in query:
+            new_vol = min(1.0, volume_manager.player.volume + 0.1)
+            volume_manager.player.adjust_volume(new_vol)
+            return f"Ses seviyesi artırıldı efendim."
+            
+        if "kıs" in query or "azalt" in query:
+            new_vol = max(0.0, volume_manager.player.volume - 0.1)
+            volume_manager.player.adjust_volume(new_vol)
+            return f"Ses seviyesi kısıldı efendim."
 
     # Basit Müzik ve Spotify Kontrolü
 

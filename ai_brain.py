@@ -1,4 +1,5 @@
 from config import client_groq
+from audio_handler import MusicPlayer  # Erişilebilirlik için eklendi
 
 def get_ai_response_stream(query, system_prompt=None):
     if not system_prompt:
