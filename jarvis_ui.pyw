@@ -128,7 +128,7 @@ class JarvisApp(ctk.CTk):
 
     def initial_greeting(self):
         time.sleep(1.5)
-        self.jarvis_speak("Sistem çevrimiçi efendim. Arayüz yüklendi. Hitap bekleniyor.")
+        self.jarvis_speak("Hoşgeldiniz efendim. Hizmetinizdeyim.")
 
     def pulse_animation(self):
         status_color = COLOR_HUD
@@ -219,8 +219,8 @@ class JarvisApp(ctk.CTk):
                         
                         self.system_print(query, is_user=True)
                         
-                        if any(cmd in query for cmd in ["uyu"]):
-                            self.jarvis_speak("Jarvis: Versiyon bir nokta yirmi kapatılıyor. İyi günler efendim.")
+                        if any(cmd in query for cmd in ["uyku vakti", "uyu"]):
+                            self.jarvis_speak("Jarvis: Versiyon bir nokta yirmi bir kapatılıyor. İyi günler efendim.")
                             self.after(1000, self.destroy)
                             return
                         if any(cmd in query for cmd in ["beklemede kal", "bekle", "güle güle"]):
