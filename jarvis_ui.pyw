@@ -4,30 +4,37 @@ import threading
 import time
 import re
 import tkinter as tk
+import os
+import asyncio
+import tempfile
 from config import *
-from audio_handler import find_mic_index, transcribe_audio, speak
+from audio_handler import find_mic_index, transcribe_audio, speak, speak_edge_tts
 from ai_brain import get_ai_response_stream
 from system_commands import execute_command, search_web, open_url
+from telegram import Update
+from telegram.ext import Application, MessageHandler, filters, ContextTypes
+from pydub import AudioSegment
+from dotenv import load_dotenv
 
 class JarvisApp(ctk.CTk):
     def __init__(self):
         super().__init__()
+        
+        self.load_env_vars()
 
         # UI Ayarları
-        self.geometry(f"{HUD_WIDTH}x{HUD_HEIGHT}+10+10") # Köşeden biraz içeride
+        self.geometry(f"{HUD_WIDTH}x{HUD_HEIGHT}+10+10")
         self.overrideredirect(True) 
         self.attributes("-topmost", True)
         self.config(bg='black')
         self.attributes("-transparentcolor", "black")
         
-        # Görev çubuğundan gizleme işlemini pencere oluştuktan sonra yap
         self.after(100, self.hide_from_taskbar)
 
         self.canvas = tk.Canvas(self, width=HUD_WIDTH, height=HUD_HEIGHT, 
                                bg='black', highlightthickness=0, bd=0)
         self.canvas.pack()
 
-        # ... (HUD Elementleri aynı)
         self.top_left_text = self.canvas.create_text(
             5, 20, text="J.A.R.V.I.S.", anchor="nw",
             fill=COLOR_HUD, font=("Consolas", 18, "bold")
@@ -51,33 +58,104 @@ class JarvisApp(ctk.CTk):
         self.create_visualizer()
         threading.Thread(target=self.initial_greeting, daemon=True).start()
         threading.Thread(target=self.wake_word_listener, daemon=True).start()
+        
+        # TELEGRAM PROTOKOLÜ
+        if self.telegram_token:
+            threading.Thread(target=self.start_telegram_loop, daemon=True).start()
+            self.system_print("TELEGRAM REMOTE ACCESS PROTOCOL ONLINE.")
+
         self.pulse_animation()
         self.update_visualizer()
         
-        # 'r' tuşu ile manuel reset/interrupt
         self.bind_all("<r>", self.manual_interrupt)
         self.bind_all("<R>", self.manual_interrupt)
+
+    def load_env_vars(self):
+        load_dotenv()
+        self.telegram_token = os.getenv("TELEGRAM_TOKEN")
+        auth_id_raw = os.getenv("AUTHORIZED_USER_ID")
+        if auth_id_raw:
+            auth_id_raw = auth_id_raw.strip().replace('"', '').replace("'", "")
+        try:
+            self.auth_user_id = int(auth_id_raw) if auth_id_raw and auth_id_raw.lower() != "none" else None
+        except:
+            self.auth_user_id = None
+
+    def start_telegram_loop(self):
+        try:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            
+            application = Application.builder().token(self.telegram_token).build()
+            application.add_handler(MessageHandler(filters.VOICE, self.handle_telegram_query))
+            application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), self.handle_telegram_query))
+            
+            application.run_polling(close_loop=False)
+        except Exception as e:
+            log(f"Telegram Loop Error: {e}")
+
+    async def handle_telegram_query(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if self.auth_user_id and update.effective_user.id != self.auth_user_id:
+            return
+
+        query_text = ""
+        try:
+            if update.message.voice:
+                voice_file = await update.message.voice.get_file()
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".ogg") as ogg_file:
+                    await voice_file.download_to_drive(ogg_file.name)
+                    ogg_path = ogg_file.name
+                
+                wav_path = ogg_path.replace(".ogg", ".wav")
+                AudioSegment.from_file(ogg_path).export(wav_path, format="wav")
+                
+                recognizer = sr.Recognizer()
+                with sr.AudioFile(wav_path) as source:
+                    audio_data = recognizer.record(source)
+                    query_text = transcribe_audio(audio_data)
+                
+                if os.path.exists(ogg_path): os.remove(ogg_path)
+                if os.path.exists(wav_path): os.remove(wav_path)
+            else:
+                query_text = update.message.text
+
+            if query_text:
+                self.system_print(f"TELEGRAM: {query_text}", is_user=True)
+                self.is_processing = True
+                
+                response_text = ""
+                sys_res = execute_command(query_text)
+                if sys_res:
+                    response_text = sys_res
+                else:
+                    stream = get_ai_response_stream(query_text)
+                    if stream:
+                        for chunk in stream:
+                            content = chunk.choices[0].delta.content
+                            if content: response_text += content
+
+                if response_text:
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as voice_resp:
+                        await speak_edge_tts(response_text, voice_resp.name)
+                        with open(voice_resp.name, "rb") as f:
+                            await update.message.reply_voice(voice=f, caption=response_text)
+                    if os.path.exists(voice_resp.name): os.remove(voice_resp.name)
+                
+                self.is_processing = False
+        except Exception as e:
+            log(f"Telegram Handle Error: {e}")
+            self.is_processing = False
 
     def hide_from_taskbar(self):
         try:
             import ctypes
-            set_window_long = ctypes.windll.user32.SetWindowLongPtrW
-            get_window_long = ctypes.windll.user32.GetWindowLongPtrW
-            GWL_EXSTYLE = -20
-            WS_EX_TOOLWINDOW = 0x00000080
-            
-            # Ana pencere ID'sini al
             hwnd = ctypes.windll.user32.GetParent(self.winfo_id())
             if hwnd == 0: hwnd = self.winfo_id()
-            
-            style = get_window_long(hwnd, GWL_EXSTYLE)
-            style |= WS_EX_TOOLWINDOW
-            set_window_long(hwnd, GWL_EXSTYLE, style)
-            
-            # Değişikliği zorla uygula
+            style = ctypes.windll.user32.GetWindowLongPtrW(hwnd, -20)
+            style |= 0x00000080
+            ctypes.windll.user32.SetWindowLongPtrW(hwnd, -20, style)
             self.attributes("-topmost", True)
-        except Exception as e:
-            log(f"Taskbar hide error: {e}")
+        except: pass
 
     def create_visualizer(self):
         self.bars = []
@@ -87,36 +165,22 @@ class JarvisApp(ctk.CTk):
         start_x = 35
         for i in range(bar_count):
             x = start_x + i * (bar_width + gap)
-            bar = self.canvas.create_rectangle(
-                x, 60, x + bar_width, 64,
-                fill=COLOR_HUD, outline=""
-            )
+            bar = self.canvas.create_rectangle(x, 60, x + bar_width, 64, fill=COLOR_HUD, outline="")
             self.bars.append(bar)
 
     def update_visualizer(self):
         import random
         status_color = COLOR_HUD
-        
-        if self.is_speaking:
-            status_color = COLOR_LISTENING
-        elif self.is_processing:
-            status_color = COLOR_PROCESSING
-        elif self.in_conversation:
-            status_color = COLOR_LISTENING
+        if self.is_speaking: status_color = COLOR_LISTENING
+        elif self.is_processing: status_color = COLOR_PROCESSING
+        elif self.in_conversation: status_color = COLOR_LISTENING
 
         for bar in self.bars:
-            height = 2
-            if self.is_speaking or self.in_conversation:
-                height = random.randint(5, 25)
-            elif self.is_processing:
-                height = random.randint(3, 12)
-            else:
-                height = random.randint(1, 3)
-            
+            height = random.randint(5, 25) if (self.is_speaking or self.in_conversation) else \
+                     random.randint(3, 12) if self.is_processing else random.randint(1, 3)
             x1, _, x2, _ = self.canvas.coords(bar)
             self.canvas.coords(bar, x1, 65 - height, x2, 68)
             self.canvas.itemconfig(bar, fill=status_color)
-        
         self.after(80, self.update_visualizer)
 
     def manual_interrupt(self, event=None):
@@ -128,17 +192,13 @@ class JarvisApp(ctk.CTk):
 
     def initial_greeting(self):
         time.sleep(1.5)
-        self.jarvis_speak("Hoşgeldiniz efendim. Hizmetinizdeyim.")
+        self.jarvis_speak("Jarvis protokolü aktif, efendim. Hizmetinizdeyim.")
 
     def pulse_animation(self):
         status_color = COLOR_HUD
-        if self.is_speaking:
-            status_color = COLOR_LISTENING
-        elif self.is_processing:
-            status_color = COLOR_PROCESSING
-        elif self.in_conversation:
-            status_color = COLOR_LISTENING
-        elif not self.is_processing and not self.in_conversation:
+        if self.is_speaking or self.in_conversation: status_color = COLOR_LISTENING
+        elif self.is_processing: status_color = COLOR_PROCESSING
+        else:
             current_color = self.canvas.itemcget(self.status_dot, "fill")
             status_color = "#004455" if current_color == COLOR_HUD else COLOR_HUD
             
@@ -153,7 +213,6 @@ class JarvisApp(ctk.CTk):
         print(f"<{timestamp}> {prefix} {text}")
 
     def jarvis_speak(self, text):
-        # URL Kontrolü
         url_match = re.search(r'\[OPEN_URL:\s*(.*?)\]', text)
         clean_text = text
         if url_match:
@@ -161,7 +220,6 @@ class JarvisApp(ctk.CTk):
             clean_text = re.sub(r'\[OPEN_URL:\s*.*?\]', '', text).strip()
 
         if not clean_text: return
-        
         self.system_print(clean_text, is_ai=True)
         self.is_speaking = True
         self.interrupted = False
@@ -170,8 +228,6 @@ class JarvisApp(ctk.CTk):
 
     def process_query(self, query):
         self.is_processing = True
-        
-        # Önce sistem komutlarını kontrol et
         response = execute_command(query)
         if response:
             self.jarvis_speak(response)
@@ -179,7 +235,6 @@ class JarvisApp(ctk.CTk):
             term = search_web(query)
             if term: self.jarvis_speak(f"İnternette {term} araştırılıyor.")
         else:
-            # AI Brain'e sor
             current_sentence = ""
             stream = get_ai_response_stream(query)
             if stream:
@@ -190,19 +245,16 @@ class JarvisApp(ctk.CTk):
                         current_sentence += content
                         if any(p in content for p in [".", "!", "?", "\n"]):
                             clean_sent = current_sentence.strip()
-                            if len(clean_sent) > 2:
-                                self.jarvis_speak(clean_sent)
+                            if len(clean_sent) > 2: self.jarvis_speak(clean_sent)
                             current_sentence = ""
                 if current_sentence.strip() and not self.interrupted:
                     self.jarvis_speak(current_sentence.strip())
-        
         self.is_processing = False
 
     def conversation_loop(self):
         recognizer = sr.Recognizer()
         recognizer.pause_threshold = 0.8
-        recognizer.energy_threshold = 5000 # Hassasiyet artırıldı
-        
+        recognizer.energy_threshold = 5000
         try:
             with sr.Microphone(device_index=self.mic_index) as source:
                 recognizer.adjust_for_ambient_noise(source, duration=1.0)
@@ -210,30 +262,21 @@ class JarvisApp(ctk.CTk):
                     try:
                         audio = recognizer.listen(source, timeout=None, phrase_time_limit=10)
                         query = transcribe_audio(audio)
-                        
-                        # Filtreleme: Gereksiz ve hatalı algılamaları engelle
                         if not query or len(query) < 3: continue
-                        junk_phrases = ["m.k.", "altyazı", "altyazi", "teşekkür ederim", "izlediğiniz için"]
-                        if any(phrase in query for phrase in junk_phrases) and len(query) < 20:
-                            continue
+                        if any(phrase in query for phrase in ["m.k.", "altyazı", "altyazi"]): continue
                         
                         self.system_print(query, is_user=True)
-                        
                         if any(cmd in query for cmd in ["uyku vakti", "uyu"]):
-                            self.jarvis_speak("Jarvis: Versiyon bir nokta yirmi bir kapatılıyor. İyi günler efendim.")
+                            self.jarvis_speak("İyi günler efendim.")
                             self.after(1000, self.destroy)
                             return
                         if any(cmd in query for cmd in ["beklemede kal", "bekle", "güle güle"]):
-                            self.jarvis_speak("Sistem bekleme moduna alınıyor.")
+                            self.jarvis_speak("Sistem bekleme modunda.")
                             self.in_conversation = False
                             break
-                        
                         self.process_query(query)
-                    except Exception as e:
-                        log(f"Listen Error: {e}")
-                        continue
-        except Exception as e:
-            log(f"Mic Error: {e}")
+                    except: continue
+        except: pass
 
     def wake_word_listener(self):
         recognizer = sr.Recognizer()

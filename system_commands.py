@@ -116,7 +116,7 @@ def execute_command(query):
                 
                 # Durumu sıfırla
                 project_creation_state = {"active": False, "step": 0, "folder_name": "", "description": ""}
-                return f"Tüm talimatlarınız not edildi. {folder_name} projesi için Gemini ajanını en kapsamlı şekilde görevlendirdim. Kodlama bittiğinde size sesleneceğim."
+                return f"Tüm talimatlarınız not edildi. {folder_name} projesi için en kapsamlı şekilde çalışmalara başladım. İşim bittiğinde size sesleneceğim."
             
             else:
                 # Detayları biriktir
@@ -181,7 +181,7 @@ def execute_command(query):
         # Gemini'yi ENTEGRE olarak başlat
         run_gemini_integrated(new_project_path, detailed_prompt, folder_name)
         
-        return f"Tabii efendim, {folder_name} klasörünü hazırladım ve Gemini'yi arka planda görevlendirdim. Bitirdiğinde sizi bilgilendireceğim."
+        return f"Tabii efendim, {folder_name} klasörünü hazırladım ve Arka planda çalışmaya başladım. Bitirdiğimde sizi bilgilendireceğim."
         
     if "kod" in query:
         subprocess.Popen(["code", TARGET_DIR], shell=True)
