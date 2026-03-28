@@ -6,6 +6,14 @@ import edge_tts
 import speech_recognition as sr
 from config import client_eleven, client_groq, log
 
+# Windows Ses Kontrolü İçin
+try:
+    from ctypes import cast, POINTER
+    from comtypes import CLSCTX_ALL
+    from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
+except ImportError:
+    pass
+
 def find_mic_index():
     try:
         mic_list = sr.Microphone.list_microphone_names()
@@ -75,15 +83,54 @@ def speak(text, interrupt_check_callback):
 
 class MusicPlayer:
     def __init__(self):
-        self.volume = 0.5
+        self._volume = 0.5
+        self._sync_with_system()
+
+    @property
+    def volume(self):
+        self._sync_with_system()
+        return self._volume
+
+    @volume.setter
+    def volume(self, value):
+        self._volume = value
+
+    def _sync_with_system(self):
+        """Sistem ses seviyesini çeker."""
+        try:
+            devices = AudioUtilities.GetSpeakers()
+            interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
+            volume = cast(interface, POINTER(IAudioEndpointVolume))
+            self._volume = volume.GetMasterVolumeLevelScalar()
+        except:
+            pass
+
+    def set_system_volume(self, level):
+        """Windows ana ses seviyesini ayarlar (0.0 - 1.0)."""
+        try:
+            devices = AudioUtilities.GetSpeakers()
+            interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
+            volume = cast(interface, POINTER(IAudioEndpointVolume))
+            volume.SetMasterVolumeLevelScalar(level, None)
+            return True
+        except Exception as e:
+            log(f"SYSTEM_VOLUME_ERR: {e}")
+            return False
 
     def adjust_volume(self, volume_level):
-        """Ses seviyesini 0.0 ile 1.0 arasında ayarlar."""
+        """Ses seviyesini 0.0 ile 1.0 arasında ayarlar (Hem uygulama hem sistem)."""
         try:
-            self.volume = max(0.0, min(1.0, float(volume_level)))
-            pygame.mixer.music.set_volume(self.volume)
-            log(f"SES_SEVIYESI: %{int(self.volume * 100)}")
-            return self.volume
+            # Property üzerinden erişmek zaten sync yapacaktır
+            target_vol = max(0.0, min(1.0, float(volume_level)))
+            
+            # Jarvis'in kendi konuşma sesi
+            pygame.mixer.music.set_volume(target_vol)
+            # Windows Genel Ses Seviyesi
+            self.set_system_volume(target_vol)
+            
+            self._volume = target_vol
+            log(f"SES_SEVIYESI: %{int(target_vol * 100)}")
+            return target_vol
         except Exception as e:
             log(f"VOLUME_ADJUST_ERR: {e}")
             return None
