@@ -84,6 +84,9 @@ def speak(text, interrupt_check_callback):
 class MusicPlayer:
     def __init__(self):
         self._volume = 0.5
+        # Jarvis'in kendi konuşma sesi her zaman %100 (veya sabit bir değer) kalsın
+        # Sistem sesi kısıldığında Jarvis'in duyulabilirliği azalmasın
+        pygame.mixer.music.set_volume(1.0) 
         self._sync_with_system()
 
     @property
@@ -118,18 +121,15 @@ class MusicPlayer:
             return False
 
     def adjust_volume(self, volume_level):
-        """Ses seviyesini 0.0 ile 1.0 arasında ayarlar (Hem uygulama hem sistem)."""
+        """Sadece Windows ana ses seviyesini ayarlar."""
         try:
-            # Property üzerinden erişmek zaten sync yapacaktır
             target_vol = max(0.0, min(1.0, float(volume_level)))
             
-            # Jarvis'in kendi konuşma sesi
-            pygame.mixer.music.set_volume(target_vol)
-            # Windows Genel Ses Seviyesi
+            # Windows Genel Ses Seviyesini Güncelle
             self.set_system_volume(target_vol)
             
             self._volume = target_vol
-            log(f"SES_SEVIYESI: %{int(target_vol * 100)}")
+            log(f"SISTEM_SES_SEVIYESI: %{int(target_vol * 100)}")
             return target_vol
         except Exception as e:
             log(f"VOLUME_ADJUST_ERR: {e}")
