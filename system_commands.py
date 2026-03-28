@@ -29,7 +29,7 @@ def execute_command(query):
     for site, url in sites.items():
         if site in query and ("aç" in query or "git" in query):
             open_url(url)
-            return f"{site.capitalize()} açılıyor efendim."
+            return f"{site.capitalize()} platformu açılıyor efendim."
 
     # Uygulamalar
     if "discord" in query and "aç" in query:
