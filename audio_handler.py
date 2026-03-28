@@ -7,12 +7,9 @@ import speech_recognition as sr
 from config import client_eleven, client_groq, log
 
 # Windows Ses Kontrolü İçin
-try:
-    from ctypes import cast, POINTER
-    from comtypes import CLSCTX_ALL
-    from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
-except ImportError:
-    pass
+from ctypes import cast, POINTER
+from comtypes import CLSCTX_ALL
+from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
 
 def find_mic_index():
     try:
