@@ -201,7 +201,7 @@ class JarvisApp(ctk.CTk):
     def conversation_loop(self):
         recognizer = sr.Recognizer()
         recognizer.pause_threshold = 0.8
-        recognizer.energy_threshold = 4000
+        recognizer.energy_threshold = 5000 # Hassasiyet artırıldı
         
         try:
             with sr.Microphone(device_index=self.mic_index) as source:
@@ -210,12 +210,16 @@ class JarvisApp(ctk.CTk):
                     try:
                         audio = recognizer.listen(source, timeout=None, phrase_time_limit=10)
                         query = transcribe_audio(audio)
+                        
+                        # Filtreleme: Gereksiz ve hatalı algılamaları engelle
                         if not query or len(query) < 3: continue
-                        if query in ["m.k.", "mk", "altyazı", "teşekkür ederim"]: continue
+                        junk_phrases = ["m.k.", "altyazı", "altyazi", "teşekkür ederim", "izlediğiniz için"]
+                        if any(phrase in query for phrase in junk_phrases) and len(query) < 20:
+                            continue
                         
                         self.system_print(query, is_user=True)
                         
-                        if any(cmd in query for cmd in ["kapat", "sistemini kapat"]):
+                        if any(cmd in query for cmd in ["uyu"]):
                             self.jarvis_speak("Jarvis: Versiyon bir nokta on kapatılıyor. İyi günler efendim.")
                             self.after(1000, self.destroy)
                             return
