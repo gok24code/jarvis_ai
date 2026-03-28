@@ -17,7 +17,117 @@ def search_web(query):
         return search_term
     return None
 
+import threading
+from audio_handler import speak
+
+def run_gemini_integrated(project_path, prompt, folder_name):
+    def target():
+        print(f"\n[SYSTEM]: Gemini Agent {folder_name} üzerinde çalışmaya başladı (YOLO Mode Active)...")
+        try:
+            # Gemini CLI'yı 'YOLO' modunda ve headless (-p) olarak başlat
+            # --yolo: Tüm izinleri (allow for this session) otomatik onaylar.
+            # -p: Promptu doğrudan iletir ve etkileşim beklemez.
+            
+            # Windows'ta execution policy sorunlarını aşmak için PowerShell üzerinden çağırıyoruz
+            full_command = f'powershell -NoProfile -ExecutionPolicy Bypass -Command "gemini --yolo -p \\"{prompt}\\""'
+            
+            process = subprocess.Popen(
+                full_command,
+                cwd=project_path,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                shell=True,
+                encoding='utf-8',
+                errors='replace'
+            )
+
+            # Çıktıyı terminale yazdır (izleme için)
+            if process.stdout:
+                for line in iter(process.stdout.readline, ''):
+                    print(f"[{folder_name}]: {line.strip()}")
+            
+            process.wait()
+            
+            # İşlem bittiğinde sesli bildirim yap
+            finish_msg = f"Efendim, {folder_name} projesinin kodlama işlemleri tamamlandı. Dosyalar hazır."
+            print(f"\n[SYSTEM]: {finish_msg}")
+            speak(finish_msg, lambda: False)
+            
+        except Exception as e:
+            error_msg = f"Gemini çalışırken bir hata oluştu: {str(e)}"
+            print(f"[ERROR]: {error_msg}")
+            speak("Üzgünüm efendim, kodlama sırasında bir aksaklık yaşandı.", lambda: False)
+
+    threading.Thread(target=target, daemon=True).start()
+
+# Proje oluşturma durumu için global değişkenler
+project_creation_state = {
+    "active": False,
+    "step": 0, # 0: İsim bekleniyor, 1: Detay bekleniyor
+    "folder_name": "",
+    "description": ""
+}
+
 def execute_command(query):
+    global project_creation_state
+
+    # Proje Modu Aktifse Akışı Yönet
+    if project_creation_state["active"]:
+        if "iptal" in query or "vazgeç" in query:
+            project_creation_state = {"active": False, "step": 0, "folder_name": "", "description": ""}
+            return "Proje oluşturma modu kapatıldı efendim."
+        
+        if project_creation_state["step"] == 0:
+            # Adım 0: Proje İsmi Alma
+            folder_name = query.replace("olsun", "").replace("ismi", "").strip().lower().replace(" ", "-")
+            project_creation_state["folder_name"] = folder_name
+            project_creation_state["step"] = 1
+            return f"Anlaşıldı efendim, proje ismi '{folder_name}' olarak belirlendi. Peki bu proje tam olarak ne yapacak? Lütfen detayları belirtin."
+        
+        elif project_creation_state["step"] == 1:
+            # Adım 1: Proje Detayı/Fonksiyonu Biriktirme
+            user_input = query.strip().lower()
+            
+            if any(k in user_input for k in ["tamamdır", "bu kadar", "hazır", "başla", "tamam"]):
+                # Biriktirilen tüm detayları al ve başlat
+                description = project_creation_state["description"]
+                folder_name = project_creation_state["folder_name"]
+                
+                if not description:
+                    return "Efendim, henüz herhangi bir detay vermediniz. Lütfen projenin ne yapacağını anlatın veya iptal deyin."
+
+                # Proje klasörünü oluştur
+                new_project_path = os.path.join(TARGET_DIR, folder_name)
+                if not os.path.exists(new_project_path):
+                    os.makedirs(new_project_path)
+                
+                # Gemini'yi arka planda başlat
+                from ai_brain import generate_gemini_prompt
+                ai_output = generate_gemini_prompt(description)
+                
+                # Prompt ayrıştırma
+                try:
+                    detailed_prompt = [l for l in ai_output.split("\n") if "PROMPT:" in l][0].split("PROMPT:")[1].strip()
+                except:
+                    detailed_prompt = description
+
+                run_gemini_integrated(new_project_path, detailed_prompt, folder_name)
+                
+                # Durumu sıfırla
+                project_creation_state = {"active": False, "step": 0, "folder_name": "", "description": ""}
+                return f"Tüm talimatlarınız not edildi. {folder_name} projesi için Gemini ajanını en kapsamlı şekilde görevlendirdim. Kodlama bittiğinde size sesleneceğim."
+            
+            else:
+                # Detayları biriktir
+                project_creation_state["description"] += query + " "
+                return "Anlaşıldı efendim, not aldım. Başka bir detay var mı? Yoksa 'tamamdır' diyerek süreci başlatabilirsiniz."
+
+    # Yeni Proje Modu Başlatma
+    if "proje modu" in query or ("yeni" in query and "proje" in query and "başlat" in query):
+        project_creation_state = {"active": True, "step": 0, "folder_name": "", "description": ""}
+        return "Proje oluşturma protokolü başlatıldı. Projenin ismi ne olsun efendim?"
+
     # ... (diğer komutlar aynı kalıyor)
     sites = {
         "video": "https://www.youtube.com", 
@@ -37,24 +147,28 @@ def execute_command(query):
         subprocess.Popen(cmd, shell=True)
         return "Discord açılıyor efendim."
 
-    if "gemini" in query and "terminal" in query:
+    if "gemini" in query:
         from ai_brain import generate_gemini_prompt
-        project_desc = query.replace("gemini", "").replace("terminal", "").replace("aç", "").replace("yap", "").replace("projesi", "").strip()
+        # Query'den gereksiz kelimeleri temizle
+        project_desc = query.replace("gemini", "").replace("terminal", "").replace("aç", "").replace("yap", "").replace("projesi", "").replace("oluştur", "").strip()
         
         if not project_desc or len(project_desc) < 3:
-            os.system(f'start cmd /k "cd /d {TARGET_DIR} && gemini"')
-            return "Gemini terminali başlatılıyor efendim."
+            return "Efendim, hangi projeyi yapmamı istediğinizi tam anlayamadım."
         
         # AI ile klasör ismi ve teknik prompt oluştur
         ai_output = generate_gemini_prompt(project_desc)
         
         # Basit ayrıştırma (parsing)
         try:
-            folder_line = [l for l in ai_output.split("\n") if "FOLDER_NAME:" in l][0]
-            prompt_line = [l for l in ai_output.split("\n") if "PROMPT:" in l][0]
+            lines = ai_output.split("\n")
+            folder_name = "new-project"
+            detailed_prompt = project_desc
             
-            folder_name = folder_line.split("FOLDER_NAME:")[1].strip()
-            detailed_prompt = prompt_line.split("PROMPT:")[1].strip()
+            for line in lines:
+                if "FOLDER_NAME:" in line:
+                    folder_name = line.split("FOLDER_NAME:")[1].strip()
+                elif "PROMPT:" in line:
+                    detailed_prompt = line.split("PROMPT:")[1].strip()
         except:
             folder_name = "new-project"
             detailed_prompt = project_desc
@@ -64,12 +178,10 @@ def execute_command(query):
         if not os.path.exists(new_project_path):
             os.makedirs(new_project_path)
             
-        # Tırnak işaretlerini terminal uyumluluğu için düzenle
-        escaped_prompt = detailed_prompt.replace('"', '\"')
+        # Gemini'yi ENTEGRE olarak başlat
+        run_gemini_integrated(new_project_path, detailed_prompt, folder_name)
         
-        # Gemini'yi YENİ klasörün içinde başlat
-        os.system(f'start cmd /k "cd /d {new_project_path} && gemini \"{escaped_prompt}\""')
-        return f"Efendim, {folder_name} klasörü oluşturuldu ve Gemini'ye talimatlar iletildi."
+        return f"Tabii efendim, {folder_name} klasörünü hazırladım ve Gemini'yi arka planda görevlendirdim. Bitirdiğinde sizi bilgilendireceğim."
         
     if "kod" in query:
         subprocess.Popen(["code", TARGET_DIR], shell=True)
