@@ -220,7 +220,7 @@ class JarvisApp(ctk.CTk):
                         self.system_print(query, is_user=True)
                         
                         if any(cmd in query for cmd in ["uyu"]):
-                            self.jarvis_speak("Jarvis: Versiyon bir nokta on kapatılıyor. İyi günler efendim.")
+                            self.jarvis_speak("Jarvis: Versiyon bir nokta yirmi kapatılıyor. İyi günler efendim.")
                             self.after(1000, self.destroy)
                             return
                         if any(cmd in query for cmd in ["beklemede kal", "bekle", "güle güle"]):
