@@ -79,7 +79,7 @@ def execute_command(query):
         subprocess.Popen(["wt.exe", "-d", TARGET_DIR], shell=True)
         return "Terminal açılıyor."
 
-    if "sistemi kilitle" in query:
+    if "kilitle" in query:
         #win+L
         ctypes.windll.user32.LockWorkStation()
         return "uygulandı."
