@@ -9,6 +9,21 @@ load_dotenv()
 # API Keys
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+
+# Authorized Telegram User ID
+auth_id_raw = os.getenv("AUTHORIZED_USER_ID")
+if auth_id_raw:
+    # Olası tırnak işaretlerini temizle
+    auth_id_raw = auth_id_raw.strip().replace('"', '').replace("'", "")
+    
+if auth_id_raw and auth_id_raw.lower() != "none" and auth_id_raw != "":
+    try:
+        AUTHORIZED_USER_ID = int(auth_id_raw)
+    except ValueError:
+        AUTHORIZED_USER_ID = None
+else:
+    AUTHORIZED_USER_ID = None
 
 # Clients
 client_groq = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None

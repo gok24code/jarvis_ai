@@ -69,8 +69,49 @@ project_creation_state = {
     "description": ""
 }
 
+# Jarvis kendini geliştirme durumu için global değişkenler
+self_improvement_state = {
+    "active": False,
+    "description": ""
+}
+
 def execute_command(query):
     global project_creation_state
+    global self_improvement_state
+
+    # Self-Improvement Modu Aktifse Akışı Yönet
+    if self_improvement_state["active"]:
+        if "iptal" in query or "vazgeç" in query:
+            self_improvement_state = {"active": False, "description": ""}
+            return "Sistem güncelleme modu iptal edildi efendim."
+            
+        user_input = query.strip().lower()
+        if any(k in user_input for k in ["tamamdır", "bu kadar", "hazır", "başla", "tamam"]):
+            description = self_improvement_state["description"]
+            if not description:
+                return "Efendim, henüz herhangi bir detay vermediniz. Lütfen neyi değiştirmemi istediğinizi anlatın veya iptal deyin."
+                
+            from ai_brain import generate_self_improvement_prompt
+            ai_output = generate_self_improvement_prompt(description)
+            
+            try:
+                detailed_prompt = [l for l in ai_output.split("\n") if "PROMPT:" in l][0].split("PROMPT:")[1].strip()
+            except:
+                detailed_prompt = description
+                
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            run_gemini_integrated(current_dir, detailed_prompt, "jarvis-self-improvement")
+            
+            self_improvement_state = {"active": False, "description": ""}
+            return "Talimatlarınızı aldım efendim. Sistem çekirdeğimi güncellemeye başlıyorum, lütfen bekleyin."
+        else:
+            self_improvement_state["description"] += query + " "
+            return "Not aldım efendim. Başka bir detay var mı? Yoksa 'tamamdır' diyerek güncellemeyi başlatabilirsiniz."
+
+    # Yeni Self-Improvement Modu Başlatma
+    if "kendini geliştir" in query or "sisteme özellik ekle" in query or "kodunu güncelle" in query:
+        self_improvement_state = {"active": True, "description": ""}
+        return "Self-Improvement protokolü başlatıldı efendim. Sistemime hangi özelliği eklememi veya neyi değiştirmemi istersiniz?"
 
     # Proje Modu Aktifse Akışı Yönet
     if project_creation_state["active"]:
