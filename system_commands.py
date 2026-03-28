@@ -2,7 +2,7 @@ import webbrowser
 import subprocess
 import ctypes
 import os
-from config import TARGET_DIR, DISCORD_PATH, SPOTIFY_PATH, BLENDER_PATH, HOLOGRAM_PATH
+from config import TARGET_DIR, DISCORD_PATH, BLENDER_PATH, HOLOGRAM_PATH, ZEN_PATH
 
 import time
 
@@ -74,6 +74,12 @@ def execute_command(query):
     if "kod" in query:
         subprocess.Popen(["code", TARGET_DIR], shell=True)
         return "Vijul stüdyo kod açılıyor."
+    
+    
+    if "tarayıcı" in query:
+        cmd = f'start "" "{ZEN_PATH}" --processStart zen.exe'
+        subprocess.Popen(cmd, shell=True)
+        return "En sevdiğiniz tarayıcınız açılıyor efendim."
         
     if "terminal" in query:
         subprocess.Popen(["wt.exe", "-d", TARGET_DIR], shell=True)
