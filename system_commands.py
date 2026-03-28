@@ -204,7 +204,7 @@ def execute_command(query):
     # ... (diğer komutlar aynı kalıyor)
     sites = {
         "video": "https://www.youtube.com", 
-        "gitab": "https://github.com/gok24code?tab=repositories", 
+        "github": "https://github.com/gok24code?tab=repositories", 
         "versel": "https://vercel.com", 
         "şirket": "https://prometh-labs.vercel.app/"
     }
