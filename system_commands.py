@@ -111,7 +111,7 @@ def execute_command(query):
     # Yeni Self-Improvement Modu Başlatma
     if "kendini geliştir" in query or "sisteme özellik ekle" in query or "kodunu güncelle" in query:
         self_improvement_state = {"active": True, "description": ""}
-        return "Self-Improvement protokolü başlatıldı efendim. Sistemime hangi özelliği eklememi veya neyi değiştirmemi istersiniz?"
+        return "Kişisel gelişim protokolü başlatıldı efendim. Sistemime hangi özelliği eklememi veya neyi değiştirmemi istersiniz?"
 
     # Proje Modu Aktifse Akışı Yönet
     if project_creation_state["active"]:
