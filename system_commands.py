@@ -22,14 +22,14 @@ from audio_handler import speak
 
 def run_gemini_integrated(project_path, prompt, folder_name):
     def target():
+        # Prompt içindeki çift tırnakları PowerShell için escape et
+        escaped_prompt = prompt.replace('"', '`"')
+        
         print(f"\n[SYSTEM]: Gemini Agent {folder_name} üzerinde çalışmaya başladı (YOLO Mode Active)...")
         try:
-            # Gemini CLI'yı 'YOLO' modunda ve headless (-p) olarak başlat
-            # --yolo: Tüm izinleri (allow for this session) otomatik onaylar.
-            # -p: Promptu doğrudan iletir ve etkileşim beklemez.
-            
-            # Windows'ta execution policy sorunlarını aşmak için PowerShell üzerinden çağırıyoruz
-            full_command = f'powershell -NoProfile -ExecutionPolicy Bypass -Command "gemini --yolo -p \\"{prompt}\\""'
+            # PowerShell komutunu daha güvenli bir şekilde oluştur
+            # -p bayrağından sonraki prompt metnini tek tırnak içine alarak tırnak çakışmasını önle
+            full_command = f'powershell -NoProfile -ExecutionPolicy Bypass -Command "gemini --yolo -p \\"{escaped_prompt}\\""'
             
             process = subprocess.Popen(
                 full_command,
@@ -94,9 +94,10 @@ def execute_command(query):
             from ai_brain import generate_self_improvement_prompt
             ai_output = generate_self_improvement_prompt(description)
             
-            try:
-                detailed_prompt = [l for l in ai_output.split("\n") if "PROMPT:" in l][0].split("PROMPT:")[1].strip()
-            except:
+            # Daha sağlam prompt ayrıştırma (PROMPT: etiketinden sonrasını tamamen al)
+            if "PROMPT:" in ai_output:
+                detailed_prompt = ai_output.split("PROMPT:")[1].strip()
+            else:
                 detailed_prompt = description
                 
             current_dir = os.path.dirname(os.path.abspath(__file__))
