@@ -128,7 +128,7 @@ class JarvisApp(ctk.CTk):
 
     def initial_greeting(self):
         time.sleep(1.5)
-        self.jarvis_speak("Sistem çevrimiçi efendim. Arayüz yüklendi. Hitap bekleniyor.")
+        self.jarvis_speak("Hoşgeldiniz efendim. Hizmetinizdeyim.")
 
     def pulse_animation(self):
         status_color = COLOR_HUD
