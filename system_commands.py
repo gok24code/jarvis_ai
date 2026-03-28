@@ -22,14 +22,19 @@ from audio_handler import speak
 
 def run_gemini_integrated(project_path, prompt, folder_name):
     def target():
-        # Prompt içindeki çift tırnakları PowerShell için escape et
-        escaped_prompt = prompt.replace('"', '`"')
-        
         print(f"\n[SYSTEM]: Gemini Agent {folder_name} üzerinde çalışmaya başladı (YOLO Mode Active)...")
+        
+        # Geçici prompt dosyası yolu
+        temp_prompt_file = os.path.join(project_path, f".{folder_name}_prompt.txt")
+        
         try:
-            # PowerShell komutunu daha güvenli bir şekilde oluştur
-            # -p bayrağından sonraki prompt metnini tek tırnak içine alarak tırnak çakışmasını önle
-            full_command = f'powershell -NoProfile -ExecutionPolicy Bypass -Command "gemini --yolo -p \\"{escaped_prompt}\\""'
+            # Prompt'u bir dosyaya yaz (UTF-8)
+            with open(temp_prompt_file, "w", encoding="utf-8") as f:
+                f.write(prompt)
+            
+            # PowerShell'e dosyayı okuyup Gemini'ye iletmesini söyleyen komut
+            # -Raw bayrağı tüm dosyayı tek bir string olarak okur (satır sonlarını korur)
+            full_command = f'powershell -NoProfile -ExecutionPolicy Bypass -Command "$p = Get-Content -Path \'{temp_prompt_file}\' -Raw; gemini --yolo -p $p"'
             
             process = subprocess.Popen(
                 full_command,
@@ -49,12 +54,20 @@ def run_gemini_integrated(project_path, prompt, folder_name):
             
             process.wait()
             
+            # Geçici dosyayı sil
+            if os.path.exists(temp_prompt_file):
+                os.remove(temp_prompt_file)
+            
             # İşlem bittiğinde sesli bildirim yap
             finish_msg = f"Efendim, {folder_name} projesinin kodlama işlemleri tamamlandı. Dosyalar hazır."
             print(f"\n[SYSTEM]: {finish_msg}")
             speak(finish_msg, lambda: False)
             
         except Exception as e:
+            # Hata durumunda da temizlik yapmaya çalış
+            if os.path.exists(temp_prompt_file):
+                os.remove(temp_prompt_file)
+            
             error_msg = f"Gemini çalışırken bir hata oluştu: {str(e)}"
             print(f"[ERROR]: {error_msg}")
             speak("Üzgünüm efendim, kodlama sırasında bir aksaklık yaşandı.", lambda: False)

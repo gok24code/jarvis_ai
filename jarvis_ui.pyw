@@ -266,7 +266,7 @@ class JarvisApp(ctk.CTk):
                         if any(phrase in query for phrase in ["m.k.", "altyazı", "altyazi"]): continue
                         
                         self.system_print(query, is_user=True)
-                        if any(cmd in query for cmd in ["uyku vakti", "uyu"]):
+                        if any(cmd in query for cmd in ["bay bay"]):
                             self.jarvis_speak("İyi günler efendim.")
                             self.after(1000, self.destroy)
                             return
