@@ -8,3 +8,5 @@ elevenlabs
 mpv
 pygame
 edge-tts
+pycaw
+comtypes

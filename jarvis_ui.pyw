@@ -14,12 +14,12 @@ from system_commands import execute_command, search_web, open_url
 from telegram import Update
 from telegram.ext import Application, MessageHandler, filters, ContextTypes
 from pydub import AudioSegment
-from dotenv import load_dotenv
+from system_commands import execute_command, search_web, open_url, volume_manager
 
 class JarvisApp(ctk.CTk):
     def __init__(self):
         super().__init__()
-        
+
         self.load_env_vars()
 
         # UI Ayarları
@@ -28,7 +28,7 @@ class JarvisApp(ctk.CTk):
         self.attributes("-topmost", True)
         self.config(bg='black')
         self.attributes("-transparentcolor", "black")
-        
+
         self.after(100, self.hide_from_taskbar)
 
         self.canvas = tk.Canvas(self, width=HUD_WIDTH, height=HUD_HEIGHT, 
@@ -44,7 +44,20 @@ class JarvisApp(ctk.CTk):
             fill=COLOR_HUD, outline=COLOR_HUD
         )
 
+        # Sağ Tık Menüsü (Ses Kontrolü için)
+        self.menu = tk.Menu(self, tearoff=0, bg="black", fg=COLOR_HUD, activebackground=COLOR_HUD, activeforeground="black")
+        self.menu.add_command(label="Ses %100", command=lambda: volume_manager.set_volume(100))
+        self.menu.add_command(label="Ses %70", command=lambda: volume_manager.set_volume(70))
+        self.menu.add_command(label="Ses %50", command=lambda: volume_manager.set_volume(50))
+        self.menu.add_command(label="Ses %30", command=lambda: volume_manager.set_volume(30))
+        self.menu.add_command(label="Sessiz", command=lambda: volume_manager.set_volume(0))
+        self.menu.add_separator()
+        self.menu.add_command(label="Çıkış", command=self.destroy)
+
+        self.bind("<Button-3>", self.show_menu)
+
         # Durum Değişkenleri
+
         self.is_processing = False
         self.in_conversation = False
         self.is_speaking = False
@@ -55,7 +68,6 @@ class JarvisApp(ctk.CTk):
         self.system_print(f"HUD BACKGROUND PROTOCOL ACTIVE.")
         
         # Arka Plan İşlemleri
-        self.create_visualizer()
         threading.Thread(target=self.initial_greeting, daemon=True).start()
         threading.Thread(target=self.wake_word_listener, daemon=True).start()
         
@@ -65,7 +77,6 @@ class JarvisApp(ctk.CTk):
             self.system_print("TELEGRAM REMOTE ACCESS PROTOCOL ONLINE.")
 
         self.pulse_animation()
-        self.update_visualizer()
         
         self.bind_all("<r>", self.manual_interrupt)
         self.bind_all("<R>", self.manual_interrupt)
@@ -157,31 +168,8 @@ class JarvisApp(ctk.CTk):
             self.attributes("-topmost", True)
         except: pass
 
-    def create_visualizer(self):
-        self.bars = []
-        bar_count = 12
-        bar_width = 4
-        gap = 3
-        start_x = 35
-        for i in range(bar_count):
-            x = start_x + i * (bar_width + gap)
-            bar = self.canvas.create_rectangle(x, 60, x + bar_width, 64, fill=COLOR_HUD, outline="")
-            self.bars.append(bar)
-
-    def update_visualizer(self):
-        import random
-        status_color = COLOR_HUD
-        if self.is_speaking: status_color = COLOR_LISTENING
-        elif self.is_processing: status_color = COLOR_PROCESSING
-        elif self.in_conversation: status_color = COLOR_LISTENING
-
-        for bar in self.bars:
-            height = random.randint(5, 25) if (self.is_speaking or self.in_conversation) else \
-                     random.randint(3, 12) if self.is_processing else random.randint(1, 3)
-            x1, _, x2, _ = self.canvas.coords(bar)
-            self.canvas.coords(bar, x1, 65 - height, x2, 68)
-            self.canvas.itemconfig(bar, fill=status_color)
-        self.after(80, self.update_visualizer)
+    def show_menu(self, event):
+        self.menu.post(event.x_root, event.y_root)
 
     def manual_interrupt(self, event=None):
         if self.in_conversation or self.is_speaking or self.is_processing:
@@ -266,7 +254,7 @@ class JarvisApp(ctk.CTk):
                         if any(phrase in query for phrase in ["m.k.", "altyazı", "altyazi"]): continue
                         
                         self.system_print(query, is_user=True)
-                        if any(cmd in query for cmd in ["uyku vakti", "uyu"]):
+                        if any(cmd in query for cmd in ["bay bay"]):
                             self.jarvis_speak("İyi günler efendim.")
                             self.after(1000, self.destroy)
                             return

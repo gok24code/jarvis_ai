@@ -18,18 +18,34 @@ def search_web(query):
     return None
 
 import threading
-from audio_handler import speak
+from audio_handler import speak, MusicPlayer
+
+class VolumeController:
+    def __init__(self):
+        self.player = MusicPlayer()
+
+    def set_volume(self, level):
+        """0-100 arası bir değer bekler ve bunu adjust_volume'a iletir."""
+        normalized_level = level / 100.0
+        return self.player.adjust_volume(normalized_level)
+
+volume_manager = VolumeController()
 
 def run_gemini_integrated(project_path, prompt, folder_name):
     def target():
         print(f"\n[SYSTEM]: Gemini Agent {folder_name} üzerinde çalışmaya başladı (YOLO Mode Active)...")
+        
+        # Geçici prompt dosyası yolu
+        temp_prompt_file = os.path.join(project_path, f".{folder_name}_prompt.txt")
+        
         try:
-            # Gemini CLI'yı 'YOLO' modunda ve headless (-p) olarak başlat
-            # --yolo: Tüm izinleri (allow for this session) otomatik onaylar.
-            # -p: Promptu doğrudan iletir ve etkileşim beklemez.
+            # Prompt'u bir dosyaya yaz (UTF-8)
+            with open(temp_prompt_file, "w", encoding="utf-8") as f:
+                f.write(prompt)
             
-            # Windows'ta execution policy sorunlarını aşmak için PowerShell üzerinden çağırıyoruz
-            full_command = f'powershell -NoProfile -ExecutionPolicy Bypass -Command "gemini --yolo -p \\"{prompt}\\""'
+            # PowerShell'e dosyayı okuyup Gemini'ye iletmesini söyleyen komut
+            # -Raw bayrağı tüm dosyayı tek bir string olarak okur (satır sonlarını korur)
+            full_command = f'powershell -NoProfile -ExecutionPolicy Bypass -Command "$p = Get-Content -Path \'{temp_prompt_file}\' -Raw; gemini --yolo -p $p"'
             
             process = subprocess.Popen(
                 full_command,
@@ -49,12 +65,27 @@ def run_gemini_integrated(project_path, prompt, folder_name):
             
             process.wait()
             
+            # Geçici dosyayı sil
+            if os.path.exists(temp_prompt_file):
+                os.remove(temp_prompt_file)
+            
             # İşlem bittiğinde sesli bildirim yap
             finish_msg = f"Efendim, {folder_name} projesinin kodlama işlemleri tamamlandı. Dosyalar hazır."
             print(f"\n[SYSTEM]: {finish_msg}")
             speak(finish_msg, lambda: False)
+
+            # Telegram bildirimi gönder (Circular import önlemek için lokal import)
+            try:
+                from telegram_bridge import send_telegram_notification
+                send_telegram_notification(finish_msg)
+            except Exception as te:
+                print(f"[ERROR]: Telegram bildirimi gönderilirken hata: {te}")
             
         except Exception as e:
+            # Hata durumunda da temizlik yapmaya çalış
+            if os.path.exists(temp_prompt_file):
+                os.remove(temp_prompt_file)
+            
             error_msg = f"Gemini çalışırken bir hata oluştu: {str(e)}"
             print(f"[ERROR]: {error_msg}")
             speak("Üzgünüm efendim, kodlama sırasında bir aksaklık yaşandı.", lambda: False)
@@ -69,8 +100,50 @@ project_creation_state = {
     "description": ""
 }
 
+# Jarvis kendini geliştirme durumu için global değişkenler
+self_improvement_state = {
+    "active": False,
+    "description": ""
+}
+
 def execute_command(query):
     global project_creation_state
+    global self_improvement_state
+
+    # Self-Improvement Modu Aktifse Akışı Yönet
+    if self_improvement_state["active"]:
+        if "iptal" in query or "vazgeç" in query:
+            self_improvement_state = {"active": False, "description": ""}
+            return "Sistem güncelleme modu iptal edildi efendim."
+            
+        user_input = query.strip().lower()
+        if any(k in user_input for k in ["tamamdır", "bu kadar", "hazır", "başla", "tamam"]):
+            description = self_improvement_state["description"]
+            if not description:
+                return "Efendim, henüz herhangi bir detay vermediniz. Lütfen neyi değiştirmemi istediğinizi anlatın veya iptal deyin."
+                
+            from ai_brain import generate_self_improvement_prompt
+            ai_output = generate_self_improvement_prompt(description)
+            
+            # Daha sağlam prompt ayrıştırma (PROMPT: etiketinden sonrasını tamamen al)
+            if "PROMPT:" in ai_output:
+                detailed_prompt = ai_output.split("PROMPT:")[1].strip()
+            else:
+                detailed_prompt = description
+                
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            run_gemini_integrated(current_dir, detailed_prompt, "jarvis-self-improvement")
+            
+            self_improvement_state = {"active": False, "description": ""}
+            return "Talimatlarınızı aldım efendim. Sistem çekirdeğimi güncellemeye başlıyorum, lütfen bekleyin."
+        else:
+            self_improvement_state["description"] += query + " "
+            return "Not aldım efendim. Başka bir detay var mı? Yoksa 'tamamdır' diyerek güncellemeyi başlatabilirsiniz."
+
+    # Yeni Self-Improvement Modu Başlatma
+    if "kendini geliştir" in query or "sisteme özellik ekle" in query or "kodunu güncelle" in query:
+        self_improvement_state = {"active": True, "description": ""}
+        return "Kişisel gelişim protokolü başlatıldı efendim. Sistemime hangi özelliği eklememi veya neyi değiştirmemi istersiniz?"
 
     # Proje Modu Aktifse Akışı Yönet
     if project_creation_state["active"]:
@@ -131,7 +204,7 @@ def execute_command(query):
     # ... (diğer komutlar aynı kalıyor)
     sites = {
         "video": "https://www.youtube.com", 
-        "gitab": "https://github.com/gok24code?tab=repositories", 
+        "github": "https://github.com/gok24code?tab=repositories", 
         "versel": "https://vercel.com", 
         "şirket": "https://prometh-labs.vercel.app/"
     }
@@ -221,6 +294,26 @@ def execute_command(query):
     if any(k in query for k in ["yeniden başlat", "sistemi yeniden başlat"]):
         subprocess.Popen(["shutdown", "/r", "/t", "5"], shell=True)
         return "Sistem beş saniye içinde yeniden başlatılacak efendim."
+
+    # Ses Kontrolü
+    if "ses" in query:
+        import re
+        # "sesi yüzde 50 yap" veya "sesi 50 yap" gibi durumları yakala
+        numbers = re.findall(r'\d+', query)
+        if numbers:
+            level = int(numbers[0])
+            volume_manager.set_volume(level)
+            return f"Ses seviyesi yüzde {level} olarak ayarlandı efendim."
+        
+        if "aç" in query or "artır" in query or "yükselt" in query:
+            new_vol = min(1.0, volume_manager.player.volume + 0.1)
+            volume_manager.player.adjust_volume(new_vol)
+            return f"Ses seviyesi artırıldı efendim."
+            
+        if "kıs" in query or "azalt" in query:
+            new_vol = max(0.0, volume_manager.player.volume - 0.1)
+            volume_manager.player.adjust_volume(new_vol)
+            return f"Ses seviyesi kısıldı efendim."
 
     # Basit Müzik ve Spotify Kontrolü
 

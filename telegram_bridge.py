@@ -7,28 +7,25 @@ from telegram.ext import Application, MessageHandler, filters, ContextTypes
 from pydub import AudioSegment
 from ai_brain import get_ai_response_stream
 from audio_handler import speak_edge_tts, transcribe_audio
-from config import GROQ_API_KEY, log, load_dotenv
-import speech_recognition as sr
+from system_commands import execute_command
+from config import TELEGRAM_TOKEN, AUTHORIZED_USER_ID, GROQ_API_KEY, log
 
-# --- CONFIG ---
-load_dotenv()
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-# AUTHORIZED_USER_ID'yi int'e çeviriyoruz, geçersiz değerleri ve tırnakları temizliyoruz
-auth_id_raw = os.getenv("AUTHORIZED_USER_ID")
-if auth_id_raw:
-    # Olası tırnak işaretlerini temizle
-    auth_id_raw = auth_id_raw.strip().replace('"', '').replace("'", "")
-    
-if auth_id_raw and auth_id_raw.lower() != "none" and auth_id_raw != "":
-    try:
-        AUTHORIZED_USER_ID = int(auth_id_raw)
-    except ValueError:
-        AUTHORIZED_USER_ID = None
-else:
-    AUTHORIZED_USER_ID = None
+import requests
 
 # Logger ayarları
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
+
+def send_telegram_notification(message):
+    """Sistem genelinde Telegram bildirimi göndermek için kullanılır."""
+    if TELEGRAM_TOKEN and AUTHORIZED_USER_ID:
+        url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+        data = {"chat_id": AUTHORIZED_USER_ID, "text": f"Jarvis: {message}"}
+        try:
+            # timeout ekleyerek ana akışı yavaşlatmamasını sağlarız
+            requests.post(url, json=data, timeout=5)
+            log(f"Telegram Notification Sent: {message}")
+        except Exception as e:
+            log(f"Telegram Notification Error: {e}")
 
 async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Yetki kontrolü
@@ -58,7 +55,7 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
             with sr.AudioFile(wav_path) as source:
                 audio_data = recognizer.record(source)
                 query_text = transcribe_audio(audio_data)
-        
+
         # Eğer mesaj METİN ise
         elif update.message.text:
             query_text = update.message.text
@@ -68,7 +65,18 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         log(f"Telegram User: {query_text}")
+
+        # ÖNCE KOMUTLARI KONTROL ET (Spotify, Uygulama Açma, Proje Modu vb.)
+        cmd_response = execute_command(query_text.lower())
+
+        if cmd_response:
+            # Eğer bu bir komutsa ve işlendiyse, sonucu gönder ve bitir
+            await update.message.reply_text(f"Jarvis: {cmd_response}")
+            return
+
+        # EĞER KOMUT DEĞİLSE, NORMAL SOHBET OLARAK DEVAM ET
         status_msg = await update.message.reply_text("Anlıyorum efendim, düşünülüyor...")
+
 
         # Jarvis'in Beynine Sor
         response_text = ""
