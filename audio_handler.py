@@ -98,20 +98,16 @@ class MusicPlayer:
     def _sync_with_system(self):
         """Sistem ses seviyesini çeker."""
         try:
-            devices = AudioUtilities.GetSpeakers()
-            interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
-            volume = cast(interface, POINTER(IAudioEndpointVolume))
-            self._volume = volume.GetMasterVolumeLevelScalar()
+            device = AudioUtilities.GetSpeakers()
+            self._volume = device.EndpointVolume.GetMasterVolumeLevelScalar()
         except:
             pass
 
     def set_system_volume(self, level):
         """Windows ana ses seviyesini ayarlar (0.0 - 1.0)."""
         try:
-            devices = AudioUtilities.GetSpeakers()
-            interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
-            volume = cast(interface, POINTER(IAudioEndpointVolume))
-            volume.SetMasterVolumeLevelScalar(level, None)
+            device = AudioUtilities.GetSpeakers()
+            device.EndpointVolume.SetMasterVolumeLevelScalar(level, None)
             return True
         except Exception as e:
             log(f"SYSTEM_VOLUME_ERR: {e}")
