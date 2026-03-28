@@ -68,7 +68,6 @@ class JarvisApp(ctk.CTk):
         self.system_print(f"HUD BACKGROUND PROTOCOL ACTIVE.")
         
         # Arka Plan İşlemleri
-        self.create_visualizer()
         threading.Thread(target=self.initial_greeting, daemon=True).start()
         threading.Thread(target=self.wake_word_listener, daemon=True).start()
         
@@ -78,7 +77,6 @@ class JarvisApp(ctk.CTk):
             self.system_print("TELEGRAM REMOTE ACCESS PROTOCOL ONLINE.")
 
         self.pulse_animation()
-        self.update_visualizer()
         
         self.bind_all("<r>", self.manual_interrupt)
         self.bind_all("<R>", self.manual_interrupt)
@@ -172,32 +170,6 @@ class JarvisApp(ctk.CTk):
 
     def show_menu(self, event):
         self.menu.post(event.x_root, event.y_root)
-
-    def create_visualizer(self):
-        self.bars = []
-        bar_count = 12
-        bar_width = 4
-        gap = 3
-        start_x = 35
-        for i in range(bar_count):
-            x = start_x + i * (bar_width + gap)
-            bar = self.canvas.create_rectangle(x, 60, x + bar_width, 64, fill=COLOR_HUD, outline="")
-            self.bars.append(bar)
-
-    def update_visualizer(self):
-        import random
-        status_color = COLOR_HUD
-        if self.is_speaking: status_color = COLOR_LISTENING
-        elif self.is_processing: status_color = COLOR_PROCESSING
-        elif self.in_conversation: status_color = COLOR_LISTENING
-
-        for bar in self.bars:
-            height = random.randint(5, 25) if (self.is_speaking or self.in_conversation) else \
-                     random.randint(3, 12) if self.is_processing else random.randint(1, 3)
-            x1, _, x2, _ = self.canvas.coords(bar)
-            self.canvas.coords(bar, x1, 65 - height, x2, 68)
-            self.canvas.itemconfig(bar, fill=status_color)
-        self.after(80, self.update_visualizer)
 
     def manual_interrupt(self, event=None):
         if self.in_conversation or self.is_speaking or self.is_processing:

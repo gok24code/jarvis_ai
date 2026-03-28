@@ -73,6 +73,13 @@ def run_gemini_integrated(project_path, prompt, folder_name):
             finish_msg = f"Efendim, {folder_name} projesinin kodlama işlemleri tamamlandı. Dosyalar hazır."
             print(f"\n[SYSTEM]: {finish_msg}")
             speak(finish_msg, lambda: False)
+
+            # Telegram bildirimi gönder (Circular import önlemek için lokal import)
+            try:
+                from telegram_bridge import send_telegram_notification
+                send_telegram_notification(finish_msg)
+            except Exception as te:
+                print(f"[ERROR]: Telegram bildirimi gönderilirken hata: {te}")
             
         except Exception as e:
             # Hata durumunda da temizlik yapmaya çalış

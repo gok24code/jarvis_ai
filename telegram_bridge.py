@@ -10,8 +10,22 @@ from audio_handler import speak_edge_tts, transcribe_audio
 from system_commands import execute_command
 from config import TELEGRAM_TOKEN, AUTHORIZED_USER_ID, GROQ_API_KEY, log
 
+import requests
+
 # Logger ayarları
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
+
+def send_telegram_notification(message):
+    """Sistem genelinde Telegram bildirimi göndermek için kullanılır."""
+    if TELEGRAM_TOKEN and AUTHORIZED_USER_ID:
+        url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+        data = {"chat_id": AUTHORIZED_USER_ID, "text": f"Jarvis: {message}"}
+        try:
+            # timeout ekleyerek ana akışı yavaşlatmamasını sağlarız
+            requests.post(url, json=data, timeout=5)
+            log(f"Telegram Notification Sent: {message}")
+        except Exception as e:
+            log(f"Telegram Notification Error: {e}")
 
 async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Yetki kontrolü
