@@ -20,7 +20,7 @@ def search_web(query):
 def execute_command(query):
     # ... (diğer komutlar aynı kalıyor)
     sites = {
-        "youtube": "https://www.youtube.com", 
+        "video": "https://www.youtube.com", 
         "gitab": "https://github.com/gok24code?tab=repositories", 
         "versel": "https://vercel.com", 
         "şirket": "https://prometh-labs.vercel.app/"
