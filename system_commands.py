@@ -71,9 +71,9 @@ def execute_command(query):
         os.system(f'start cmd /k "cd /d {new_project_path} && gemini \"{escaped_prompt}\""')
         return f"Efendim, {folder_name} klasörü oluşturuldu ve Gemini'ye talimatlar iletildi."
         
-    if "editör" in query:
+    if "kod" in query:
         subprocess.Popen(["code", TARGET_DIR], shell=True)
-        return "Editör açılıyor."
+        return "Vijul stüdyo kod açılıyor."
         
     if "terminal" in query:
         subprocess.Popen(["wt.exe", "-d", TARGET_DIR], shell=True)
@@ -86,12 +86,39 @@ def execute_command(query):
     if "temizlik" in query:
         subprocess.Popen("cleanmgr.exe")
         return "Sistemin tozunu bir alalım bakalım. Temizlik aracı çalıştırılıyor."
-    if any(k in query for k in ["spotify", "müzik", "şarkı"]) and ("aç" in query or "çal" in query):
+
+    if any(k in query for k in ["alanı temizle"]):
+        # PowerShell komutu: Görünür penceresi olan tüm işlemleri kapat (Explorer ve Jarvis hariç)
+        ps_cmd = (
+            'Get-Process | Where-Object { $_.MainWindowTitle -ne "" -and $_.ProcessName -ne "explorer" '
+            '-and $_.ProcessName -ne "python" -and $_.ProcessName -ne "pythonw" } | Stop-Process -Force'
+        )
+        subprocess.Popen(["powershell", "-Command", ps_cmd], shell=True)
+        return "Tüm kullanıcı programları sonlandırılıyor efendim. Çalışma alanınız temizlendi."
+
+    if any(k in query for k in ["bilgisayarı kapat", "sistemi kapat"]):
+        subprocess.Popen(["shutdown", "/s", "/t", "5"], shell=True)
+        return "Sistem beş saniye içinde kapatılacak efendim. İyi günler dilerim."
+
+    if any(k in query for k in ["yeniden başlat", "sistemi yeniden başlat"]):
+        subprocess.Popen(["shutdown", "/r", "/t", "5"], shell=True)
+        return "Sistem beş saniye içinde yeniden başlatılacak efendim."
+
+    # Basit Müzik ve Spotify Kontrolü
+
+    if any(k in query for k in ["spotify", "şarkı","müzik"]) and ("aç" in query or "başlat" in query):
         os.startfile("spotify:")
-        # Uygulamanın açılması için kısa bir bekleme ve play tuşu simülasyonu
-        time.sleep(2)
-        ctypes.windll.user32.keybd_event(0xB3, 0, 0, 0) # VK_MEDIA_PLAY_PAUSE
-        return "Playlist çalınıyor efendim."
+        time.sleep(1.5)
+        ctypes.windll.user32.keybd_event(0xB3, 0, 0, 0) # Play/Pause tuşu
+        return "Tabiki efendim."
+
+    if any(k in query for k in ["çalmayı", "duraklat"]) and (query or "durdur" in query or "kes" in query):
+        ctypes.windll.user32.keybd_event(0xB3, 0, 0, 0) # Play/Pause tuşu
+        return "İstediğiniz gibi."
+
+    if any(k in query for k in ["sıradaki", "sonraki", "geç"]):
+        ctypes.windll.user32.keybd_event(0xB0, 0, 0, 0) # Sıradaki parça tuşu
+        return "Tabii efendim."
 
     if any(k in query for k in ["blender", "tasarım","çizim"]) and ("aç" in query or "başlat" in query):
         subprocess.Popen([BLENDER_PATH])
@@ -100,7 +127,4 @@ def execute_command(query):
         subprocess.Popen(f'python "{HOLOGRAM_PATH}"', cwd=hologram_dir, shell=True)
         return "Blender ve Hologram arayüzü açılıyor efendim. Bugün ne üstünde çalışacaksınız?"
 
-    if any(k in query for k in ["müziği durdur", "şarkıyı durdur", "müziği duraklat", "şarkıyı duraklat"]):
-        ctypes.windll.user32.keybd_event(0xB3, 0, 0, 0)
-        return "Müzik duraklatıldı."
     return None
