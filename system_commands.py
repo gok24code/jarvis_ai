@@ -86,12 +86,20 @@ def execute_command(query):
     if "temizlik" in query:
         subprocess.Popen("cleanmgr.exe")
         return "Sistemin tozunu bir alalım bakalım. Temizlik aracı çalıştırılıyor."
-    if any(k in query for k in ["spotify", "müzik", "şarkı"]) and ("aç" in query or "çal" in query):
+    # Basit Müzik ve Spotify Kontrolü
+    if any(k in query for k in ["spotify", "müzik aç", "şarkı aç"]):
         os.startfile("spotify:")
-        # Uygulamanın açılması için kısa bir bekleme ve play tuşu simülasyonu
-        time.sleep(2)
-        ctypes.windll.user32.keybd_event(0xB3, 0, 0, 0) # VK_MEDIA_PLAY_PAUSE
-        return "Playlist çalınıyor efendim."
+        time.sleep(1.5)
+        ctypes.windll.user32.keybd_event(0xB3, 0, 0, 0) # Play/Pause tuşu
+        return "Spotify açılıyor ve müzik başlatılıyor efendim."
+
+    if any(k in query for k in ["müziği durdur", "müziği duraklat", "çalmayı kes"]):
+        ctypes.windll.user32.keybd_event(0xB3, 0, 0, 0) # Play/Pause tuşu
+        return "Müzik durduruldu."
+
+    if any(k in query for k in ["müziği geç", "sıradaki parça", "müziği atla"]):
+        ctypes.windll.user32.keybd_event(0xB0, 0, 0, 0) # Sıradaki parça tuşu
+        return "Sıradaki parça."
 
     if any(k in query for k in ["blender", "tasarım","çizim"]) and ("aç" in query or "başlat" in query):
         subprocess.Popen([BLENDER_PATH])
@@ -100,7 +108,4 @@ def execute_command(query):
         subprocess.Popen(f'python "{HOLOGRAM_PATH}"', cwd=hologram_dir, shell=True)
         return "Blender ve Hologram arayüzü açılıyor efendim. Bugün ne üstünde çalışacaksınız?"
 
-    if any(k in query for k in ["müziği durdur", "şarkıyı durdur", "müziği duraklat", "şarkıyı duraklat"]):
-        ctypes.windll.user32.keybd_event(0xB3, 0, 0, 0)
-        return "Müzik duraklatıldı."
     return None
