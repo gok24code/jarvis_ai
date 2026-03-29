@@ -6,16 +6,21 @@ from elevenlabs.client import ElevenLabs
 
 load_dotenv()
 
+def clean_env_var(var):
+    if var:
+        # Satır sonundaki yorumları temizle (#)
+        var = var.split('#')[0].strip()
+        # Olası tırnak işaretlerini temizle
+        return var.replace('"', '').replace("'", "").strip()
+    return var
+
 # API Keys
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+GROQ_API_KEY = clean_env_var(os.getenv("GROQ_API_KEY"))
+ELEVENLABS_API_KEY = clean_env_var(os.getenv("ELEVENLABS_API_KEY"))
+TELEGRAM_TOKEN = clean_env_var(os.getenv("TELEGRAM_TOKEN"))
 
 # Authorized Telegram User ID
-auth_id_raw = os.getenv("AUTHORIZED_USER_ID")
-if auth_id_raw:
-    # Olası tırnak işaretlerini temizle
-    auth_id_raw = auth_id_raw.strip().replace('"', '').replace("'", "")
+auth_id_raw = clean_env_var(os.getenv("AUTHORIZED_USER_ID"))
     
 if auth_id_raw and auth_id_raw.lower() != "none" and auth_id_raw != "":
     try:

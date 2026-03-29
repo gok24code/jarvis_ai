@@ -11,3 +11,8 @@ edge-tts
 pycaw
 comtypes
 pyautogui
+python-telegram-bot
+pydub
+httpx
+anyio
+httpcore

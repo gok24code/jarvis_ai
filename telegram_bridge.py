@@ -13,7 +13,14 @@ from config import TELEGRAM_TOKEN, AUTHORIZED_USER_ID, GROQ_API_KEY, log
 import requests
 
 # Logger ayarları
-logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", 
+    level=logging.INFO,
+    handlers=[
+        logging.FileHandler("telegram_bridge.log"),
+        logging.StreamHandler()
+    ]
+)
 
 def send_telegram_notification(message):
     """Sistem genelinde Telegram bildirimi göndermek için kullanılır."""
