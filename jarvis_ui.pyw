@@ -7,6 +7,7 @@ import tkinter as tk
 import os
 import asyncio
 import tempfile
+from PIL import Image, ImageTk, ImageSequence
 from config import *
 from audio_handler import find_mic_index, transcribe_audio, speak, speak_edge_tts
 from ai_brain import get_ai_response_stream
@@ -22,32 +23,54 @@ class JarvisApp(ctk.CTk):
 
         self.load_env_vars()
 
-        # UI Ayarları
-        self.geometry(f"{HUD_WIDTH}x{HUD_HEIGHT}+10+10")
+        # UI Ayarları (Tam Ekran)
+        self.screen_width = self.winfo_screenwidth()
+        self.screen_height = self.winfo_screenheight()
+        self.geometry(f"{self.screen_width}x{self.screen_height}+0+0")
+        
         self.overrideredirect(True) 
-        self.attributes("-topmost", True)
         self.config(bg='black')
         self.attributes("-transparentcolor", "black")
 
-        self.after(100, self.hide_from_taskbar)
+        self.after(100, self.apply_window_styles)
 
-        self.canvas = tk.Canvas(self, width=HUD_WIDTH, height=HUD_HEIGHT, 
+        self.canvas = tk.Canvas(self, width=self.screen_width, height=self.screen_height, 
                                bg='black', highlightthickness=0, bd=0)
         self.canvas.pack()
 
-        self.top_left_text = self.canvas.create_text(
-            5, 20, text="J.A.R.V.I.S.", anchor="nw",
-            fill=COLOR_HUD, font=("Consolas", 18, "bold")
-        )
-        self.status_dot = self.canvas.create_oval(
-            175, 30, 190, 45, 
-            fill=COLOR_HUD, outline=COLOR_HUD
+        # Mekanik HUD Ayarları
+        self.center_x = self.screen_width // 2 -235
+        self.center_y = self.screen_height // 2
+        self.angle = 0
+        self.pulse_val = 0
+        
+        # HUD Katman Parçaları (ID listesi)
+        self.hud_elements = []
+        
+        # 1. Dış Kesikli Statik Halka (Derece Göstergesi gibi)
+        self.hud_elements.append(self.canvas.create_oval(
+            self.center_x-200, self.center_y-200, self.center_x+200, self.center_y+200,
+            outline="#002233", width=1, dash=(2, 10)
+        ))
+        
+        # 2. Dönen Segmentler (Arcs)
+        self.arc1 = self.canvas.create_arc(0,0,0,0, outline=COLOR_HUD, width=3, style="arc", start=0, extent=60)
+        self.arc2 = self.canvas.create_arc(0,0,0,0, outline=COLOR_HUD, width=3, style="arc", start=180, extent=60)
+        
+        # 3. Orta Kesikli Halka (Ters Dönüş)
+        self.mid_ring = self.canvas.create_oval(0,0,0,0, outline=COLOR_HUD, width=1, dash=(10, 20))
+        
+        # 4. İç Core (Altıgenimsi yapı simülasyonu için 2 arc)
+        self.core_arc1 = self.canvas.create_arc(0,0,0,0, outline=COLOR_LISTENING, width=5, style="arc", start=0, extent=120)
+        self.core_arc2 = self.canvas.create_arc(0,0,0,0, outline=COLOR_LISTENING, width=5, style="arc", start=180, extent=120)
+
+        self.center_text = self.canvas.create_text(
+            self.center_x, self.center_y, text="J.A.R.V.I.S.",
+            fill=COLOR_HUD, font=("Consolas", 10, "bold")
         )
 
         # Sağ Tık Menüsü (Ses Kontrolü için)
         self.menu = tk.Menu(self, tearoff=0, bg="black", fg=COLOR_HUD, activebackground=COLOR_HUD, activeforeground="black")
-        self.menu.add_command(label="WhatsApp Mesajı", command=self.open_whatsapp_dialog)
-        self.menu.add_separator()
         self.menu.add_command(label="Ses %100", command=lambda: volume_manager.set_volume(100))
         self.menu.add_command(label="Ses %70", command=lambda: volume_manager.set_volume(70))
         self.menu.add_command(label="Ses %50", command=lambda: volume_manager.set_volume(50))
@@ -59,6 +82,11 @@ class JarvisApp(ctk.CTk):
         self.bind("<Button-3>", self.show_menu)
 
         # Durum Değişkenleri
+        self.whatsapp_state = None
+        self.temp_recipient = None
+        
+        # Telegram State Tracking
+        self.telegram_states = {} # {user_id: {'state': None, 'recipient': None}}
 
         self.is_processing = False
         self.in_conversation = False
@@ -78,38 +106,54 @@ class JarvisApp(ctk.CTk):
             threading.Thread(target=self.start_telegram_loop, daemon=True).start()
             self.system_print("TELEGRAM REMOTE ACCESS PROTOCOL ONLINE.")
 
-        self.pulse_animation()
+        self.animate_hud()
         
         self.bind_all("<r>", self.manual_interrupt)
         self.bind_all("<R>", self.manual_interrupt)
 
-    def open_whatsapp_dialog(self):
-        dialog = tk.Toplevel(self)
-        dialog.title("WhatsApp Mesajı")
-        dialog.geometry("300x200")
-        dialog.config(bg="black")
-        dialog.attributes("-topmost", True)
+    def animate_hud(self):
+        import math
+        # Duruma göre hız ve renk
+        speed_mult = 1.0
+        color = COLOR_HUD
+        
+        if self.is_speaking or self.in_conversation:
+            speed_mult = 4.0
+            color = COLOR_LISTENING
+        elif self.is_processing:
+            speed_mult = 2.0
+            color = COLOR_PROCESSING
 
-        tk.Label(dialog, text="Alıcı (İsim veya Numara):", fg=COLOR_HUD, bg="black").pack(pady=5)
-        recipient_entry = tk.Entry(dialog, bg="#111", fg=COLOR_HUD, insertbackground=COLOR_HUD)
-        recipient_entry.pack(pady=5, padx=20, fill="x")
+        self.angle += 0.05 * speed_mult
+        self.pulse_val += 0.1 * speed_mult
+        pulse_scale = 1.0 + (math.sin(self.pulse_val) * 0.05)
+        
+        cx, cy = self.center_x, self.center_y
+        
+        # 1. Dış Arcları Döndür (Zıt Yönler)
+        r1 = 160 * pulse_scale
+        self.canvas.coords(self.arc1, cx-r1, cy-r1, cx+r1, cy+r1)
+        self.canvas.itemconfig(self.arc1, start=self.angle*50, outline=color)
+        
+        self.canvas.coords(self.arc2, cx-r1, cy-r1, cx+r1, cy+r1)
+        self.canvas.itemconfig(self.arc2, start=self.angle*50 + 180, outline=color)
+        
+        # 2. Orta Halka (Ters Dönüş hissi için dash offset simülasyonu olmasa da boyut değişimi)
+        r2 = 130 * pulse_scale
+        self.canvas.coords(self.mid_ring, cx-r2, cy-r2, cx+r2, cy+r2)
+        self.canvas.itemconfig(self.mid_ring, outline=color)
+        
+        # 3. Core Arcları (Hızlı Dönüş)
+        r3 = 60 * (1.0 + math.sin(self.pulse_val*2)*0.1)
+        self.canvas.coords(self.core_arc1, cx-r3, cy-r3, cx+r3, cy+r3)
+        self.canvas.itemconfig(self.core_arc1, start=-self.angle*80, outline=color)
+        
+        self.canvas.coords(self.core_arc2, cx-r3, cy-r3, cx+r3, cy+r3)
+        self.canvas.itemconfig(self.core_arc2, start=-self.angle*80 + 180, outline=color)
+        
+        self.canvas.itemconfig(self.center_text, fill=color)
 
-        tk.Label(dialog, text="Mesaj:", fg=COLOR_HUD, bg="black").pack(pady=5)
-        message_entry = tk.Entry(dialog, bg="#111", fg=COLOR_HUD, insertbackground=COLOR_HUD)
-        message_entry.pack(pady=5, padx=20, fill="x")
-
-        def send():
-            recipient = recipient_entry.get()
-            message = message_entry.get()
-            if recipient and message:
-                from ai_brain import send_whatsapp_message
-                if send_whatsapp_message(recipient, message):
-                    self.jarvis_speak(f"{recipient} kişisine mesaj gönderildi.")
-                else:
-                    self.jarvis_speak("Mesaj gönderilemedi efendim.")
-                dialog.destroy()
-
-        tk.Button(dialog, text="Gönder", command=send, bg=COLOR_HUD, fg="black").pack(pady=20)
+        self.after(30, self.animate_hud)
 
     def load_env_vars(self):
         load_dotenv()
@@ -139,6 +183,10 @@ class JarvisApp(ctk.CTk):
         if self.auth_user_id and update.effective_user.id != self.auth_user_id:
             return
 
+        user_id = update.effective_user.id
+        if user_id not in self.telegram_states:
+            self.telegram_states[user_id] = {"state": None, "recipient": None}
+
         query_text = ""
         try:
             if update.message.voice:
@@ -165,15 +213,64 @@ class JarvisApp(ctk.CTk):
                 self.is_processing = True
                 
                 response_text = ""
-                sys_res = execute_command(query_text)
-                if sys_res:
-                    response_text = sys_res
+                
+                # Telegram WhatsApp Flow
+                state_data = self.telegram_states[user_id]
+                
+                if state_data["state"] == "waiting_recipient":
+                    # Name extraction with suffix removal
+                    clean_name = re.sub(r'(y[ea]|[ea])$', '', query_text.lower().strip())
+                    state_data["recipient"] = clean_name
+                    state_data["state"] = "waiting_message"
+                    response_text = "Mesaj içeriği nedir?"
+                
+                elif state_data["state"] == "waiting_message":
+                    from ai_brain import send_whatsapp_message
+                    recipient = state_data["recipient"]
+                    message_text = query_text
+
+                    # Mevcut event loop'u al
+                    loop = asyncio.get_running_loop()
+
+                    # Telegram'ı kilitlememek için ayrı bir thread'de gönder
+                    def bg_send():
+                        success = send_whatsapp_message(recipient, message_text)
+                        text = f"Anlaşıldı efendim, {recipient} kişisine mesaj iletildi." if success else "Üzgünüm efendim, mesaj gönderilemedi."
+                        # Mesajı asıl loop üzerinden geri gönder
+                        asyncio.run_coroutine_threadsafe(update.message.reply_text(text), loop)
+
+                    threading.Thread(target=bg_send, daemon=True).start()
+                    response_text = f"{recipient} kişisine mesajınız iletiliyor, efendim."
+
+                    state_data["state"] = None
+                    state_data["recipient"] = None
+
+
+                elif any(kw in query_text.lower() for kw in ["mesaj gönder", "mesaj at", "whatsapp"]):
+                    # Try to see if recipient is already in this first message
+                    # e.g., "Ali'ye mesaj gönder"
+                    match = re.search(r'(.*?)([\'"]?[ye]?[ea])?\s+(mesaj gönder|mesaj at|whatsapp)', query_text.lower())
+                    if match and match.group(1).strip():
+                        recipient = match.group(1).strip()
+                        # Clean suffix
+                        recipient = re.sub(r'(y[ea]|[ea])$', '', recipient)
+                        state_data["recipient"] = recipient
+                        state_data["state"] = "waiting_message"
+                        response_text = f"{recipient} kişisine ne yazmak istersiniz?"
+                    else:
+                        state_data["state"] = "waiting_recipient"
+                        response_text = "Kime mesaj göndermek istersiniz?"
+
                 else:
-                    stream = get_ai_response_stream(query_text)
-                    if stream:
-                        for chunk in stream:
-                            content = chunk.choices[0].delta.content
-                            if content: response_text += content
+                    sys_res = execute_command(query_text)
+                    if sys_res:
+                        response_text = sys_res
+                    else:
+                        stream = get_ai_response_stream(query_text)
+                        if stream:
+                            for chunk in stream:
+                                content = chunk.choices[0].delta.content
+                                if content: response_text += content
 
                 if response_text:
                     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as voice_resp:
@@ -187,16 +284,27 @@ class JarvisApp(ctk.CTk):
             log(f"Telegram Handle Error: {e}")
             self.is_processing = False
 
-    def hide_from_taskbar(self):
+    def apply_window_styles(self):
         try:
             import ctypes
             hwnd = ctypes.windll.user32.GetParent(self.winfo_id())
             if hwnd == 0: hwnd = self.winfo_id()
+            
+            # Get current style
             style = ctypes.windll.user32.GetWindowLongPtrW(hwnd, -20)
-            style |= 0x00000080
+            
+            # WS_EX_TOOLWINDOW (0x80) -> Hide from taskbar
+            # WS_EX_TRANSPARENT (0x20) -> Click-through (ignore mouse events)
+            # WS_EX_LAYERED (0x80000) -> Required for some transparency effects
+            style |= 0x00000080 | 0x00000020 | 0x00080000
+            
             ctypes.windll.user32.SetWindowLongPtrW(hwnd, -20, style)
-            self.attributes("-topmost", True)
-        except: pass
+            
+            # Set to bottom (HWND_BOTTOM = 1)
+            # SWP_NOSIZE = 0x0001, SWP_NOMOVE = 0x0002, SWP_NOACTIVATE = 0x0010
+            ctypes.windll.user32.SetWindowPos(hwnd, 1, 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0010)
+        except Exception as e:
+            log(f"Window Style Error: {e}")
 
     def show_menu(self, event):
         self.menu.post(event.x_root, event.y_root)
@@ -211,17 +319,6 @@ class JarvisApp(ctk.CTk):
     def initial_greeting(self):
         time.sleep(1.5)
         self.jarvis_speak("Jarvis protokolü aktif, efendim. Hizmetinizdeyim.")
-
-    def pulse_animation(self):
-        status_color = COLOR_HUD
-        if self.is_speaking or self.in_conversation: status_color = COLOR_LISTENING
-        elif self.is_processing: status_color = COLOR_PROCESSING
-        else:
-            current_color = self.canvas.itemcget(self.status_dot, "fill")
-            status_color = "#004455" if current_color == COLOR_HUD else COLOR_HUD
-            
-        self.canvas.itemconfig(self.status_dot, fill=status_color, outline=status_color)
-        self.after(1000, self.pulse_animation)
 
     def system_print(self, text, is_user=False, is_ai=False):
         timestamp = time.strftime("%H:%M:%S")
@@ -246,6 +343,48 @@ class JarvisApp(ctk.CTk):
 
     def process_query(self, query):
         self.is_processing = True
+
+        # WhatsApp Flow
+        if self.whatsapp_state == "waiting_recipient":
+            # Name extraction with suffix removal (e.g., Ali'ye -> Ali)
+            clean_name = re.sub(r'(y[ea]|[ea])$', '', query.lower().strip())
+            self.temp_recipient = clean_name
+            self.jarvis_speak("Mesaj içeriği nedir?")
+            self.whatsapp_state = "waiting_message"
+            self.is_processing = False
+            return
+
+        if self.whatsapp_state == "waiting_message":
+            from ai_brain import send_whatsapp_message
+            message_content = query
+            self.jarvis_speak(f"{self.temp_recipient} kişisine mesajınız gönderiliyor.")
+            if send_whatsapp_message(self.temp_recipient, message_content):
+                self.jarvis_speak("Mesaj başarıyla iletildi efendim.")
+            else:
+                self.jarvis_speak("Mesaj gönderilirken bir hata oluştu.")
+            
+            self.whatsapp_state = None
+            self.temp_recipient = None
+            self.is_processing = False
+            return
+
+        if any(kw in query.lower() for kw in ["mesaj gönder", "mesaj at", "whatsapp"]):
+            # Check if recipient is in the initial command, e.g., "Ali'ye mesaj gönder"
+            match = re.search(r'(.*?)([\'"]?[ye]?[ea])?\s+(mesaj gönder|mesaj at|whatsapp)', query.lower())
+            if match and match.group(1).strip():
+                recipient = match.group(1).strip()
+                # Clean suffix
+                recipient = re.sub(r'(y[ea]|[ea])$', '', recipient)
+                self.temp_recipient = recipient
+                self.whatsapp_state = "waiting_message"
+                self.jarvis_speak(f"{recipient} kişisine ne yazmak istersiniz?")
+            else:
+                self.jarvis_speak("Kime mesaj göndermek istersiniz?")
+                self.whatsapp_state = "waiting_recipient"
+            
+            self.is_processing = False
+            return
+
         response = execute_command(query)
         if response:
             self.jarvis_speak(response)

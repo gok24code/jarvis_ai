@@ -4,7 +4,9 @@ from config import log
 
 class PersonPool:
     def __init__(self, pool_file="persons.json"):
-        self.pool_file = pool_file
+        # Dosya yolunu mutlak yol yap
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        self.pool_file = os.path.join(base_dir, pool_file)
         self.persons = []
         self.load_pool()
 
@@ -14,6 +16,7 @@ class PersonPool:
             try:
                 with open(self.pool_file, "r", encoding="utf-8") as f:
                     self.persons = json.load(f)
+                # log(f"Person pool loaded: {len(self.persons)} persons found.")
             except Exception as e:
                 log(f"Error loading person pool: {e}")
                 self.persons = []
@@ -30,11 +33,23 @@ class PersonPool:
             log(f"Error saving person pool: {e}")
 
     def find_person(self, name_or_alias):
-        """Searches for a person by name or alias."""
-        search_term = name_or_alias.lower()
+        """Searches for a person by name or alias (case-insensitive and robust)."""
+        if not name_or_alias: return None
+        # Normalize input: lowercase and remove all inner spaces for extreme robustness
+        search_term = "".join(name_or_alias.lower().split())
+        
         for person in self.persons:
-            if search_term == person["name"].lower() or search_term in [alias.lower() for alias in person.get("aliases", [])]:
+            # Check Name (Normalized comparison)
+            stored_name = "".join(person.get("name", "").lower().split())
+            if search_term == stored_name:
                 return person
+            
+            # Check Aliases (Normalized comparison)
+            aliases = person.get("aliases", [])
+            for alias in aliases:
+                stored_alias = "".join(alias.lower().split())
+                if search_term == stored_alias:
+                    return person
         return None
 
     def get_phone_number(self, name_or_alias):

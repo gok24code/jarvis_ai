@@ -1,12 +1,10 @@
 [
     {
-        "name": "Ahmet",
-        "phone": "+905551234567",
-        "aliases": ["kardeşim", "ahmet bey"]
-    },
-    {
-        "name": "Mehmet",
-        "phone": "+905557654321",
-        "aliases": ["arkadaşım"]
+        "name": "Poyraz",
+        "phone": "+905331408177",
+        "aliases": [
+            "dostum",
+            "poyraz"
+        ]
     }
 ]

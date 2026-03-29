@@ -11,15 +11,22 @@ def send_whatsapp_message(recipient_name_or_alias, message_text):
     """
     Sends a WhatsApp message using the WhatsAppHandler and PersonPool.
     """
+    # Her gönderimden önce rehberi tazele (Dosyadan yeniden oku)
+    person_pool.load_pool()
+    
     phone_number = person_pool.get_phone_number(recipient_name_or_alias)
-    if phone_number:
-        return whatsapp_handler.send_message(phone_number, message_text)
-    else:
-        # If not found in pool, assume it's a direct phone number if it looks like one
+    
+    if not phone_number:
+        # If not found in pool, check if it's a direct phone number
         import re
         if re.match(r'^\+?[1-9]\d{1,14}$', recipient_name_or_alias.replace(" ", "")):
-            return whatsapp_handler.send_message(recipient_name_or_alias, message_text)
-        return False
+            phone_number = recipient_name_or_alias.replace(" ", "")
+        else:
+            msg = f"[ERROR]: Recipient '{recipient_name_or_alias}' not found in persons.json and is not a valid phone number."
+            print(msg)
+            return False
+
+    return whatsapp_handler.send_message(phone_number, message_text)
 
 def get_ai_response_stream(query, system_prompt=None):
     if not system_prompt:

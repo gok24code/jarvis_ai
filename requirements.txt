@@ -9,5 +9,5 @@ mpv
 pygame
 edge-tts
 pycaw
-comtypestwilio
-twilio
+comtypes
+pyautogui
