@@ -318,7 +318,7 @@ class JarvisApp(ctk.CTk):
 
     def initial_greeting(self):
         time.sleep(1.5)
-        self.jarvis_speak("Jarvis protokolü aktif, efendim. Hizmetinizdeyim.")
+        self.jarvis_speak("Hoşgeldiniz efendim. Hizmetinizdeyim.")
 
     def system_print(self, text, is_user=False, is_ai=False):
         timestamp = time.strftime("%H:%M:%S")
