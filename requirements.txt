@@ -9,4 +9,5 @@ mpv
 pygame
 edge-tts
 pycaw
-comtypes
+comtypestwilio
+twilio

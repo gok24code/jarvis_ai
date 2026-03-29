@@ -46,6 +46,8 @@ class JarvisApp(ctk.CTk):
 
         # Sağ Tık Menüsü (Ses Kontrolü için)
         self.menu = tk.Menu(self, tearoff=0, bg="black", fg=COLOR_HUD, activebackground=COLOR_HUD, activeforeground="black")
+        self.menu.add_command(label="WhatsApp Mesajı", command=self.open_whatsapp_dialog)
+        self.menu.add_separator()
         self.menu.add_command(label="Ses %100", command=lambda: volume_manager.set_volume(100))
         self.menu.add_command(label="Ses %70", command=lambda: volume_manager.set_volume(70))
         self.menu.add_command(label="Ses %50", command=lambda: volume_manager.set_volume(50))
@@ -80,6 +82,34 @@ class JarvisApp(ctk.CTk):
         
         self.bind_all("<r>", self.manual_interrupt)
         self.bind_all("<R>", self.manual_interrupt)
+
+    def open_whatsapp_dialog(self):
+        dialog = tk.Toplevel(self)
+        dialog.title("WhatsApp Mesajı")
+        dialog.geometry("300x200")
+        dialog.config(bg="black")
+        dialog.attributes("-topmost", True)
+
+        tk.Label(dialog, text="Alıcı (İsim veya Numara):", fg=COLOR_HUD, bg="black").pack(pady=5)
+        recipient_entry = tk.Entry(dialog, bg="#111", fg=COLOR_HUD, insertbackground=COLOR_HUD)
+        recipient_entry.pack(pady=5, padx=20, fill="x")
+
+        tk.Label(dialog, text="Mesaj:", fg=COLOR_HUD, bg="black").pack(pady=5)
+        message_entry = tk.Entry(dialog, bg="#111", fg=COLOR_HUD, insertbackground=COLOR_HUD)
+        message_entry.pack(pady=5, padx=20, fill="x")
+
+        def send():
+            recipient = recipient_entry.get()
+            message = message_entry.get()
+            if recipient and message:
+                from ai_brain import send_whatsapp_message
+                if send_whatsapp_message(recipient, message):
+                    self.jarvis_speak(f"{recipient} kişisine mesaj gönderildi.")
+                else:
+                    self.jarvis_speak("Mesaj gönderilemedi efendim.")
+                dialog.destroy()
+
+        tk.Button(dialog, text="Gönder", command=send, bg=COLOR_HUD, fg="black").pack(pady=20)
 
     def load_env_vars(self):
         load_dotenv()

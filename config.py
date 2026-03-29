@@ -29,6 +29,11 @@ else:
 client_groq = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 client_eleven = ElevenLabs(api_key=ELEVENLABS_API_KEY) if ELEVENLABS_API_KEY else None
 
+# Twilio Configuration
+TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
+TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
+TWILIO_WHATSAPP_NUMBER = os.getenv("TWILIO_WHATSAPP_NUMBER")
+
 # UI Constants
 COLOR_HUD = "#00f3ff"
 COLOR_LISTENING = "#007bff"

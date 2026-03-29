@@ -1,5 +1,25 @@
 from config import client_groq
 from audio_handler import MusicPlayer  # Erişilebilirlik için eklendi
+from whatsapp_handler import WhatsAppHandler
+from person_pool import PersonPool
+
+# Initialize handlers
+whatsapp_handler = WhatsAppHandler()
+person_pool = PersonPool()
+
+def send_whatsapp_message(recipient_name_or_alias, message_text):
+    """
+    Sends a WhatsApp message using the WhatsAppHandler and PersonPool.
+    """
+    phone_number = person_pool.get_phone_number(recipient_name_or_alias)
+    if phone_number:
+        return whatsapp_handler.send_message(phone_number, message_text)
+    else:
+        # If not found in pool, assume it's a direct phone number if it looks like one
+        import re
+        if re.match(r'^\+?[1-9]\d{1,14}$', recipient_name_or_alias.replace(" ", "")):
+            return whatsapp_handler.send_message(recipient_name_or_alias, message_text)
+        return False
 
 def get_ai_response_stream(query, system_prompt=None):
     if not system_prompt:

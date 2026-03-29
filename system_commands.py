@@ -243,7 +243,33 @@ def _handle_single_command(query):
         subprocess.Popen(f'python "{HOLOGRAM_PATH}"', cwd=hologram_dir, shell=True)
         return "Blender ve Hologram arayüzü açılıyor efendim. Bugün ne üstünde çalışacaksınız?"
 
-    # 7. GEMINI HIZLI PROJE (Bağımsız)
+    # 7. WHATSAPP MESAJI
+    if "whatsapp" in query and "mesaj" in query:
+        from ai_brain import send_whatsapp_message
+        # Format örneği: "Ahmet'e WhatsApp'tan mesaj gönder: Selam naber"
+        # veya "WhatsApp'tan Ahmet'e mesaj yaz: Yarın görüşürüz"
+        
+        content = query.replace("whatsapp", "").replace("mesaj", "").replace("gönder", "").replace("yaz", "").replace("'a", "").replace("'e", "").replace("dan", "").replace("tan", "").strip()
+        
+        if ":" in content:
+            recipient, message = content.split(":", 1)
+            recipient = recipient.strip()
+            message = message.strip()
+        else:
+            # ":" yoksa ilk kelimeyi alıcı, sonrakini mesaj sayalım (basit yaklaşım)
+            words = content.split(" ")
+            if len(words) >= 2:
+                recipient = words[0]
+                message = " ".join(words[1:])
+            else:
+                return "Efendim, alıcı veya mesaj içeriği eksik."
+
+        if send_whatsapp_message(recipient, message):
+            return f"Anlaşıldı efendim, {recipient} kişisine WhatsApp mesajı gönderildi."
+        else:
+            return f"Üzgünüm efendim, {recipient} kişisine mesaj gönderilemedi. Lütfen numarasını kontrol edin."
+
+    # 8. GEMINI HIZLI PROJE (Bağımsız)
     if "gemini" in query:
         from ai_brain import generate_gemini_prompt
         project_desc = query.replace("gemini", "").replace("terminal", "").replace("aç", "").replace("yap", "").replace("projesi", "").replace("oluştur", "").strip()
