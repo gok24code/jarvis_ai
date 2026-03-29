@@ -1,11 +1,21 @@
 from config import client_groq
-from audio_handler import MusicPlayer  # Erişilebilirlik için eklendi
+from audio_handler import MusicPlayer, provide_voice_feedback  # Erişilebilirlik için eklendi
+import system_commands
+import audio_handler
 from whatsapp_handler import WhatsAppHandler
 from person_pool import PersonPool
 
 # Initialize handlers
 whatsapp_handler = WhatsAppHandler()
 person_pool = PersonPool()
+
+def process_user_command(command):
+    if 'launch steam' in command:
+        system_commands.launch_steam()
+        audio_handler.provide_voice_feedback("Steam launched. Entering game mode.")
+    elif 'launch epic games' in command:
+        system_commands.launch_epic_games()
+        audio_handler.provide_voice_feedback("Epic Games Launcher launched. Entering game mode.")
 
 def send_whatsapp_message(recipient_name_or_alias, message_text):
     """

@@ -78,6 +78,10 @@ def speak(text, interrupt_check_callback):
     except Exception as e:
         log(f"AUDIO_ERR: {e}")
 
+def provide_voice_feedback(message):
+    # Utilizing the existing speak function for voice feedback
+    speak(message, lambda: False)
+
 class MusicPlayer:
     def __init__(self):
         self._volume = 0.5

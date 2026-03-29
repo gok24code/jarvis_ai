@@ -44,6 +44,12 @@ BLENDER_PATH = r"C:\Program Files\Blender Foundation\Blender 5.0\blender.exe"
 ZEN_PATH = r"C:\Program Files\Zen Browser\zen.exe"
 HOLOGRAM_PATH = os.path.join(TARGET_DIR, "hologram_editing", "main.py")
 
+# Launcher Paths
+LAUNCHER_PATHS = {
+    'steam': r'C:/Program Files (x86)/Steam/steam.exe',
+    'epic_games': r'C:/Program Files/Epic Games/Launcher/Portal/Binaries/Win32/EpicGamesLauncher.exe'
+}
+
 # Initialize Pygame Mixer
 pygame.mixer.pre_init(44100, -16, 2, 512)
 pygame.mixer.init()

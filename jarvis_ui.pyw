@@ -10,6 +10,7 @@ import tempfile
 from PIL import Image, ImageTk, ImageSequence
 from config import *
 from audio_handler import find_mic_index, transcribe_audio, speak, speak_edge_tts
+import ai_brain
 from ai_brain import get_ai_response_stream
 from system_commands import execute_command, search_web, open_url
 from telegram import Update
@@ -343,6 +344,7 @@ class JarvisApp(ctk.CTk):
 
     def process_query(self, query):
         self.is_processing = True
+        self.handle_user_input(query)
 
         # WhatsApp Flow
         if self.whatsapp_state == "waiting_recipient":
@@ -407,6 +409,9 @@ class JarvisApp(ctk.CTk):
                 if current_sentence.strip() and not self.interrupted:
                     self.jarvis_speak(current_sentence.strip())
         self.is_processing = False
+
+    def handle_user_input(self, input_text):
+        ai_brain.process_user_command(input_text)
 
     def conversation_loop(self):
         recognizer = sr.Recognizer()

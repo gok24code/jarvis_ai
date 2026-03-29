@@ -2,12 +2,26 @@ import webbrowser
 import subprocess
 import ctypes
 import os
+import platform
+import config
 from config import TARGET_DIR, DISCORD_PATH, BLENDER_PATH, HOLOGRAM_PATH, ZEN_PATH
 
 import time
 
 def open_url(url):
     webbrowser.open(url)
+
+def launch_steam():
+    try:
+        subprocess.Popen([config.LAUNCHER_PATHS['steam']])
+    except Exception as e:
+        print(f"Error launching Steam: {e}")
+
+def launch_epic_games():
+    try:
+        subprocess.Popen([config.LAUNCHER_PATHS['epic_games']])
+    except Exception as e:
+        print(f"Error launching Epic Games Launcher: {e}")
 
 def search_web(query):
     search_term = query.replace("ara", "").replace("bul", "").replace("internette", "").strip()
@@ -168,6 +182,19 @@ def _handle_single_command(query):
         cmd = f'start "" "{ZEN_PATH}" --processStart zen.exe'
         subprocess.Popen(cmd, shell=True)
         return "En sevdiğiniz tarayıcınız açılıyor efendim."
+
+    if "steam" in query and "aç" in query:
+        launch_steam()
+        return "Steam açılıyor efendim. Oyun modu aktif ediliyor."
+
+    if "epic games" in query and "aç" in query:
+        launch_epic_games()
+        return "Epic Games Launcher açılıyor efendim."
+
+    if "oyun modu" in query:
+        launch_steam()
+        launch_epic_games()
+        return "Oyun modu protokolü başlatıldı. Steam ve Epic Games Launcher açılıyor. İyi oyunlar efendim."
         
     if "kod" in query:
         subprocess.Popen(["code", TARGET_DIR], shell=True)
