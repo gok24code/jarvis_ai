@@ -107,101 +107,45 @@ self_improvement_state = {
 }
 
 def execute_command(query):
+    if not query: return None
+    
+    # Temizlik ve Jarvis ismini ayıklama (isteğe bağlı, genel deneyimi iyileştirir)
+    query_clean = query.lower().replace("hey jarvis", "").replace("jarvis", "").strip()
+    if not query_clean: return None
+
+    # Komutları bağlaçlara göre ayır
+    conjunctions = [" ve ", " ayrıca ", " bir de ", " ardından ", " sonra "]
+    parts = [query_clean]
+    
+    for conj in conjunctions:
+        new_parts = []
+        for p in parts:
+            if conj in p:
+                new_parts.extend(p.split(conj))
+            else:
+                new_parts.append(p)
+        parts = new_parts
+    
+    parts = [p.strip() for p in parts if p.strip()]
+    
+    if len(parts) > 1:
+        responses = []
+        for part in parts:
+            res = _handle_single_command(part)
+            if res:
+                responses.append(res)
+        
+        if not responses: return None
+        # Yanıtları birleştir
+        return " ".join(responses)
+    else:
+        return _handle_single_command(query_clean)
+
+def _handle_single_command(query):
     global project_creation_state
     global self_improvement_state
 
-    # Self-Improvement Modu Aktifse Akışı Yönet
-    if self_improvement_state["active"]:
-        if "iptal" in query or "vazgeç" in query:
-            self_improvement_state = {"active": False, "description": ""}
-            return "Sistem güncelleme modu iptal edildi efendim."
-            
-        user_input = query.strip().lower()
-        if any(k in user_input for k in ["tamamdır", "bu kadar", "hazır", "başla", "tamam"]):
-            description = self_improvement_state["description"]
-            if not description:
-                return "Efendim, henüz herhangi bir detay vermediniz. Lütfen neyi değiştirmemi istediğinizi anlatın veya iptal deyin."
-                
-            from ai_brain import generate_self_improvement_prompt
-            ai_output = generate_self_improvement_prompt(description)
-            
-            # Daha sağlam prompt ayrıştırma (PROMPT: etiketinden sonrasını tamamen al)
-            if "PROMPT:" in ai_output:
-                detailed_prompt = ai_output.split("PROMPT:")[1].strip()
-            else:
-                detailed_prompt = description
-                
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            run_gemini_integrated(current_dir, detailed_prompt, "jarvis-self-improvement")
-            
-            self_improvement_state = {"active": False, "description": ""}
-            return "Talimatlarınızı aldım efendim. Sistem çekirdeğimi güncellemeye başlıyorum, lütfen bekleyin."
-        else:
-            self_improvement_state["description"] += query + " "
-            return "Not aldım efendim. Başka bir detay var mı? Yoksa 'tamamdır' diyerek güncellemeyi başlatabilirsiniz."
-
-    # Yeni Self-Improvement Modu Başlatma
-    if "kendini geliştir" in query or "sisteme özellik ekle" in query or "kodunu güncelle" in query:
-        self_improvement_state = {"active": True, "description": ""}
-        return "Kişisel gelişim protokolü başlatıldı efendim. Sistemime hangi özelliği eklememi veya neyi değiştirmemi istersiniz?"
-
-    # Proje Modu Aktifse Akışı Yönet
-    if project_creation_state["active"]:
-        if "iptal" in query or "vazgeç" in query:
-            project_creation_state = {"active": False, "step": 0, "folder_name": "", "description": ""}
-            return "Proje oluşturma modu kapatıldı efendim."
-        
-        if project_creation_state["step"] == 0:
-            # Adım 0: Proje İsmi Alma
-            folder_name = query.replace("olsun", "").replace("ismi", "").strip().lower().replace(" ", "-")
-            project_creation_state["folder_name"] = folder_name
-            project_creation_state["step"] = 1
-            return f"Anlaşıldı efendim, proje ismi '{folder_name}' olarak belirlendi. Peki bu proje tam olarak ne yapacak? Lütfen detayları belirtin."
-        
-        elif project_creation_state["step"] == 1:
-            # Adım 1: Proje Detayı/Fonksiyonu Biriktirme
-            user_input = query.strip().lower()
-            
-            if any(k in user_input for k in ["tamamdır", "bu kadar", "hazır", "başla", "tamam"]):
-                # Biriktirilen tüm detayları al ve başlat
-                description = project_creation_state["description"]
-                folder_name = project_creation_state["folder_name"]
-                
-                if not description:
-                    return "Efendim, henüz herhangi bir detay vermediniz. Lütfen projenin ne yapacağını anlatın veya iptal deyin."
-
-                # Proje klasörünü oluştur
-                new_project_path = os.path.join(TARGET_DIR, folder_name)
-                if not os.path.exists(new_project_path):
-                    os.makedirs(new_project_path)
-                
-                # Gemini'yi arka planda başlat
-                from ai_brain import generate_gemini_prompt
-                ai_output = generate_gemini_prompt(description)
-                
-                # Prompt ayrıştırma
-                try:
-                    detailed_prompt = [l for l in ai_output.split("\n") if "PROMPT:" in l][0].split("PROMPT:")[1].strip()
-                except:
-                    detailed_prompt = description
-
-                run_gemini_integrated(new_project_path, detailed_prompt, folder_name)
-                
-                # Durumu sıfırla
-                project_creation_state = {"active": False, "step": 0, "folder_name": "", "description": ""}
-                return f"Tüm talimatlarınız not edildi. {folder_name} projesi için en kapsamlı şekilde çalışmalara başladım. İşim bittiğinde size sesleneceğim."
-            
-            else:
-                # Detayları biriktir
-                project_creation_state["description"] += query + " "
-                return "Anlaşıldı efendim, not aldım. Başka bir detay var mı? Yoksa 'tamamdır' diyerek süreci başlatabilirsiniz."
-
-    # Yeni Proje Modu Başlatma
-    if "proje modu" in query or ("yeni" in query and "proje" in query and "başlat" in query):
-        project_creation_state = {"active": True, "step": 0, "folder_name": "", "description": ""}
-        return "Proje oluşturma protokolü başlatıldı. Projenin ismi ne olsun efendim?"
-
-    # ... (diğer komutlar aynı kalıyor)
+    # 1. WEB SİTELERİ
     sites = {
         "video": "https://www.youtube.com", 
         "github": "https://github.com/gok24code?tab=repositories", 
@@ -214,72 +158,35 @@ def execute_command(query):
             open_url(url)
             return f"{site.capitalize()} platformu açılıyor efendim."
 
-    # Uygulamalar
+    # 2. UYGULAMALAR
     if "discord" in query and "aç" in query:
         cmd = f'start "" "{DISCORD_PATH}" --processStart Discord.exe'
         subprocess.Popen(cmd, shell=True)
         return "Discord açılıyor efendim."
 
-    if "gemini" in query:
-        from ai_brain import generate_gemini_prompt
-        # Query'den gereksiz kelimeleri temizle
-        project_desc = query.replace("gemini", "").replace("terminal", "").replace("aç", "").replace("yap", "").replace("projesi", "").replace("oluştur", "").strip()
-        
-        if not project_desc or len(project_desc) < 3:
-            return "Efendim, hangi projeyi yapmamı istediğinizi tam anlayamadım."
-        
-        # AI ile klasör ismi ve teknik prompt oluştur
-        ai_output = generate_gemini_prompt(project_desc)
-        
-        # Basit ayrıştırma (parsing)
-        try:
-            lines = ai_output.split("\n")
-            folder_name = "new-project"
-            detailed_prompt = project_desc
-            
-            for line in lines:
-                if "FOLDER_NAME:" in line:
-                    folder_name = line.split("FOLDER_NAME:")[1].strip()
-                elif "PROMPT:" in line:
-                    detailed_prompt = line.split("PROMPT:")[1].strip()
-        except:
-            folder_name = "new-project"
-            detailed_prompt = project_desc
-
-        # Proje klasörünü oluştur
-        new_project_path = os.path.join(TARGET_DIR, folder_name)
-        if not os.path.exists(new_project_path):
-            os.makedirs(new_project_path)
-            
-        # Gemini'yi ENTEGRE olarak başlat
-        run_gemini_integrated(new_project_path, detailed_prompt, folder_name)
-        
-        return f"Tabii efendim, {folder_name} klasörünü hazırladım ve Arka planda çalışmaya başladım. Bitirdiğimde sizi bilgilendireceğim."
-        
-    if "kod" in query:
-        subprocess.Popen(["code", TARGET_DIR], shell=True)
-        return "Vijul stüdyo kod açılıyor."
-    
-    
     if "tarayıcı" in query:
         cmd = f'start "" "{ZEN_PATH}" --processStart zen.exe'
         subprocess.Popen(cmd, shell=True)
         return "En sevdiğiniz tarayıcınız açılıyor efendim."
         
+    if "kod" in query:
+        subprocess.Popen(["code", TARGET_DIR], shell=True)
+        return "Vijul stüdyo kod açılıyor."
+    
     if "terminal" in query:
         subprocess.Popen(["wt.exe", "-d", TARGET_DIR], shell=True)
         return "Terminal açılıyor."
 
+    # 3. SİSTEM KOMUTLARI
     if "kilitle" in query:
-        #win+L
         ctypes.windll.user32.LockWorkStation()
         return "uygulandı."
+
     if "temizlik" in query:
         subprocess.Popen("cleanmgr.exe")
         return "Sistemin tozunu bir alalım bakalım. Temizlik aracı çalıştırılıyor."
 
     if any(k in query for k in ["alanı temizle"]):
-        # PowerShell komutu: Görünür penceresi olan tüm işlemleri kapat (Explorer ve Jarvis hariç)
         ps_cmd = (
             'Get-Process | Where-Object { $_.MainWindowTitle -ne "" -and $_.ProcessName -ne "explorer" '
             '-and $_.ProcessName -ne "python" -and $_.ProcessName -ne "pythonw" } | Stop-Process -Force'
@@ -295,10 +202,9 @@ def execute_command(query):
         subprocess.Popen(["shutdown", "/r", "/t", "5"], shell=True)
         return "Sistem beş saniye içinde yeniden başlatılacak efendim."
 
-    # Ses Kontrolü
+    # 4. SES KONTROLÜ
     if "ses" in query:
         import re
-        # "sesi yüzde 50 yap" veya "sesi 50 yap" gibi durumları yakala
         numbers = re.findall(r'\d+', query)
         if numbers:
             level = int(numbers[0])
@@ -315,8 +221,7 @@ def execute_command(query):
             volume_manager.player.adjust_volume(new_vol)
             return f"Ses seviyesi kısıldı efendim."
 
-    # Basit Müzik ve Spotify Kontrolü
-
+    # 5. MÜZİK VE SPOTIFY
     if any(k in query for k in ["spotify", "şarkı","müzik"]) and ("aç" in query or "başlat" in query):
         os.startfile("spotify:")
         time.sleep(1.5)
@@ -324,18 +229,129 @@ def execute_command(query):
         return "Tabiki efendim."
 
     if any(k in query for k in ["çalmayı", "duraklat"]) and (query or "durdur" in query or "kes" in query):
-        ctypes.windll.user32.keybd_event(0xB3, 0, 0, 0) # Play/Pause tuşu
+        ctypes.windll.user32.keybd_event(0xB3, 0, 0, 0)
         return "İstediğiniz gibi."
 
     if any(k in query for k in ["sıradaki", "sonraki", "geç"]):
-        ctypes.windll.user32.keybd_event(0xB0, 0, 0, 0) # Sıradaki parça tuşu
+        ctypes.windll.user32.keybd_event(0xB0, 0, 0, 0)
         return "Tabii efendim."
 
+    # 6. TASARIM VE BLENDER
     if any(k in query for k in ["blender", "tasarım","çizim"]) and ("aç" in query or "başlat" in query):
         subprocess.Popen([BLENDER_PATH])
-        # Hologram projesini de başlat
         hologram_dir = os.path.dirname(HOLOGRAM_PATH)
         subprocess.Popen(f'python "{HOLOGRAM_PATH}"', cwd=hologram_dir, shell=True)
         return "Blender ve Hologram arayüzü açılıyor efendim. Bugün ne üstünde çalışacaksınız?"
+
+    # 7. GEMINI HIZLI PROJE (Bağımsız)
+    if "gemini" in query:
+        from ai_brain import generate_gemini_prompt
+        project_desc = query.replace("gemini", "").replace("terminal", "").replace("aç", "").replace("yap", "").replace("projesi", "").replace("oluştur", "").strip()
+        
+        if not project_desc or len(project_desc) < 3:
+            return "Efendim, hangi projeyi yapmamı istediğinizi tam anlayamadım."
+        
+        ai_output = generate_gemini_prompt(project_desc)
+        try:
+            lines = ai_output.split("\n")
+            folder_name = "new-project"
+            detailed_prompt = project_desc
+            for line in lines:
+                if "FOLDER_NAME:" in line:
+                    folder_name = line.split("FOLDER_NAME:")[1].strip()
+                elif "PROMPT:" in line:
+                    detailed_prompt = line.split("PROMPT:")[1].strip()
+        except:
+            folder_name = "new-project"
+            detailed_prompt = project_desc
+
+        new_project_path = os.path.join(TARGET_DIR, folder_name)
+        if not os.path.exists(new_project_path):
+            os.makedirs(new_project_path)
+            
+        run_gemini_integrated(new_project_path, detailed_prompt, folder_name)
+        return f"Tabii efendim, {folder_name} klasörünü hazırladım ve Arka planda çalışmaya başladım."
+
+    # 8. SELF-IMPROVEMENT MODU (Aktifse)
+    if self_improvement_state["active"]:
+        if "iptal" in query or "vazgeç" in query:
+            self_improvement_state = {"active": False, "description": ""}
+            return "Sistem güncelleme modu iptal edildi efendim."
+            
+        user_input = query.strip().lower()
+        if any(k in user_input for k in ["tamamdır", "bu kadar", "hazır", "başla", "tamam"]):
+            description = self_improvement_state["description"]
+            if not description:
+                return "Efendim, henüz herhangi bir detay vermediniz. Lütfen neyi değiştirmemi istediğinizi anlatın veya iptal deyin."
+                
+            from ai_brain import generate_self_improvement_prompt
+            ai_output = generate_self_improvement_prompt(description)
+            
+            if "PROMPT:" in ai_output:
+                detailed_prompt = ai_output.split("PROMPT:")[1].strip()
+            else:
+                detailed_prompt = description
+                
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            run_gemini_integrated(current_dir, detailed_prompt, "jarvis-self-improvement")
+            
+            self_improvement_state = {"active": False, "description": ""}
+            return "Talimatlarınızı aldım efendim. Sistem çekirdeğimi güncellemeye başlıyorum."
+        else:
+            self_improvement_state["description"] += query + " "
+            return "Not aldım efendim. Başka bir detay var mı?"
+
+    # 9. SELF-IMPROVEMENT BAŞLATMA
+    if "kendini geliştir" in query or "sisteme özellik ekle" in query or "kodunu güncelle" in query:
+        self_improvement_state = {"active": True, "description": ""}
+        return "Kişisel gelişim protokolü başlatıldı efendim. Ne istersiniz?"
+
+    # 10. PROJE MODU (Aktifse)
+    if project_creation_state["active"]:
+        if "iptal" in query or "vazgeç" in query:
+            project_creation_state = {"active": False, "step": 0, "folder_name": "", "description": ""}
+            return "Proje oluşturma modu kapatıldı efendim."
+        
+        if project_creation_state["step"] == 0:
+            folder_name = query.replace("olsun", "").replace("ismi", "").strip().lower().replace(" ", "-")
+            project_creation_state["folder_name"] = folder_name
+            project_creation_state["step"] = 1
+            return f"Anlaşıldı efendim, proje ismi '{folder_name}' olarak belirlendi. Detayları alabilir miyim?"
+        
+        elif project_creation_state["step"] == 1:
+            user_input = query.strip().lower()
+            if any(k in user_input for k in ["tamamdır", "bu kadar", "hazır", "başla", "tamam"]):
+                description = project_creation_state["description"]
+                folder_name = project_creation_state["folder_name"]
+                
+                if not description:
+                    return "Efendim, henüz herhangi bir detay vermediniz."
+
+                new_project_path = os.path.join(TARGET_DIR, folder_name)
+                if not os.path.exists(new_project_path):
+                    os.makedirs(new_project_path)
+                
+                from ai_brain import generate_gemini_prompt
+                ai_output = generate_gemini_prompt(description)
+                
+                try:
+                    detailed_prompt = [l for l in ai_output.split("\n") if "PROMPT:" in l][0].split("PROMPT:")[1].strip()
+                except:
+                    detailed_prompt = description
+
+                run_gemini_integrated(new_project_path, detailed_prompt, folder_name)
+                project_creation_state = {"active": False, "step": 0, "folder_name": "", "description": ""}
+                return f"Tüm talimatlarınız not edildi efendim. {folder_name} üzerinde çalışıyorum."
+            else:
+                project_creation_state["description"] += query + " "
+                return "Not aldım. Başka bir detay?"
+
+    # 11. PROJE MODU BAŞLATMA
+    if "proje modu" in query or ("yeni" in query and "proje" in query and "başlat" in query):
+        project_creation_state = {"active": True, "step": 0, "folder_name": "", "description": ""}
+        return "Proje oluşturma protokolü başlatıldı. Projenin ismi ne olsun efendim?"
+
+    return None
+
 
     return None
