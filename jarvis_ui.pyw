@@ -432,7 +432,7 @@ class JarvisApp(ctk.CTk):
                             self.jarvis_speak("İyi günler efendim.")
                             self.after(1000, self.destroy)
                             return
-                        if any(cmd in query for cmd in ["beklemede kal", "bekle", "güle güle"]):
+                        if any(cmd in query for cmd in ["uyu", "bekle"]):
                             self.jarvis_speak("Sistem bekleme modunda.")
                             self.in_conversation = False
                             break
@@ -451,7 +451,7 @@ class JarvisApp(ctk.CTk):
                         try:
                             audio = recognizer.listen(source, phrase_time_limit=2.5, timeout=None)
                             text = transcribe_audio(audio)
-                            if text and "jarvis" in text:
+                            if text and "uyan jarvis" in text:
                                 self.jarvis_speak("Buyrun efendim.")
                                 self.in_conversation = True
                                 threading.Thread(target=self.conversation_loop, daemon=True).start()
