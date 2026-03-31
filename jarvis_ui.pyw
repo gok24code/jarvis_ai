@@ -451,7 +451,7 @@ class JarvisApp(ctk.CTk):
                         try:
                             audio = recognizer.listen(source, phrase_time_limit=2.5, timeout=None)
                             text = transcribe_audio(audio)
-                            if text and "uyan bakalım" in text:
+                            if text and ("uyan jarvis" or "uyan bakalım" or "jarvis" or "jarvis orda mısın" or "babacık eve geldi") in text:
                                 self.jarvis_speak("Buyrun efendim.")
                                 self.in_conversation = True
                                 threading.Thread(target=self.conversation_loop, daemon=True).start()
