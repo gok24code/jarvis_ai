@@ -30,27 +30,26 @@ class ArmController:
     def _find_arduino_port(self):
         ports = serial.tools.list_ports.comports()
         for p in ports:
-            # Yaygın Arduino/CH340 isimlerini kontrol et
             if any(desc in p.description for desc in ["Arduino", "CH340", "USB-SERIAL", "USB Serial"]):
                 return p.device
-        return "COM9" # Sistem logunda görünen port
+        return "COM9"
 
     def _initialize_serial(self):
         try:
             if self.ser: self.ser.close()
             self.ser = serial.Serial(self.port, self.baudrate, timeout=1)
-            time.sleep(2) # Reset sonrası bekleme
+            time.sleep(2)
             self.is_connected = True
             log(f"ARM_CONTROLLER: Connected to {self.port}")
         except Exception as e:
             log(f"ARM_CONTROLLER_ERR: Could not connect to arm - {e}")
             self.is_connected = False
 
-    def send_command(self, cmd, val=0):
+    def send_command(self, cmd, val=None):
         if self.is_connected and self.ser:
             with self._serial_lock:
                 try:
-                    msg = f"{cmd}{val}\n"
+                    msg = f"{cmd}{val}\n" if val is not None else f"{cmd}\n"
                     self.ser.write(msg.encode())
                 except:
                     self.is_connected = False
@@ -60,38 +59,17 @@ class ArmController:
     def move_elbow_alt(self, angle): self.send_command('A', angle)
     def move_elbow_ust(self, angle): self.send_command('U', angle)
     def home(self): self.send_command('H')
+    def laydown(self): self.send_command('L')
+    def dogrul(self): self.send_command('D')
 
     def _talk_loop(self):
-        # Konuşma başladığında dirsekleri ayarla
-        self.move_elbow_alt(60)
-        self.move_elbow_ust(120)
-        
-        base_angle = 90
-        step = 2 # Salınım hızı
-        
-        while self.talking:
-            # Base yavaşça 45-135 arasında dönsün
-            self.move_base(base_angle)
-            base_angle += step
-            
-            if base_angle >= 135:
-                step = -2
-            elif base_angle <= 45:
-                step = 2
-                
-            time.sleep(0.05)
+        pass
 
     def start_talking_animation(self):
-        if not self.talking:
-            self.talking = True
-            self.animation_thread = threading.Thread(target=self._talk_loop, daemon=True)
-            self.animation_thread.start()
+        self.talking = True
 
     def stop_talking_animation(self):
         self.talking = False
-        if self.animation_thread:
-            self.animation_thread.join(timeout=1)
-        self.home()
 
 # Singleton Instance
 arm = ArmController()

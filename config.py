@@ -35,9 +35,9 @@ client_groq = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 client_eleven = ElevenLabs(api_key=ELEVENLABS_API_KEY) if ELEVENLABS_API_KEY else None
 
 # UI Constants
-COLOR_HUD = "#00f3ff"
-COLOR_LISTENING = "#007bff"
-COLOR_PROCESSING = "#0033ff"
+COLOR_HUD = "#045458"
+COLOR_LISTENING = "#217685"
+COLOR_PROCESSING = "#1c4656"
 HUD_WIDTH = 200
 HUD_HEIGHT = 80
 
@@ -48,7 +48,6 @@ SPOTIFY_PATH = r"C:\Users\gok2\AppData\Roaming\Spotify\Spotify.exe"
 BLENDER_PATH = r"C:\Program Files\Blender Foundation\Blender 5.0\blender.exe"
 ZEN_PATH = r"C:\Program Files\Zen Browser\zen.exe"
 HOLOGRAM_PATH = os.path.join(TARGET_DIR, "hologram_editing", "main.py")
-ARM_CONTROL_PATH = os.path.join(TARGET_DIR, "jarvis_s_video_proccessing", "arm_gesture_control.py")
 
 # Launcher Paths
 LAUNCHER_PATHS = {

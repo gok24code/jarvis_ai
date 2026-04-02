@@ -13,7 +13,6 @@ from config import *
 from audio_handler import find_mic_index, transcribe_audio, speak, speak_edge_tts
 import ai_brain
 from ai_brain import get_ai_response_stream
-from system_commands import execute_command, search_web, open_url
 from telegram import Update
 from telegram.ext import Application, MessageHandler, filters, ContextTypes, CommandHandler
 from pydub import AudioSegment
@@ -58,7 +57,7 @@ class JarvisApp(ctk.CTk):
         self.canvas.pack()
 
         # Mekanik HUD Ayarları
-        self.center_x = self.screen_width // 2 -235
+        self.center_x = self.screen_width // 2 -237
         self.center_y = self.screen_height // 2
         self.angle = 0
         self.pulse_val = 0
@@ -74,18 +73,12 @@ class JarvisApp(ctk.CTk):
         
         # 2. Dönen Segmentler (Arcs)
         self.arc1 = self.canvas.create_arc(0,0,0,0, outline=COLOR_HUD, width=3, style="arc", start=0, extent=60)
-        self.arc2 = self.canvas.create_arc(0,0,0,0, outline=COLOR_HUD, width=3, style="arc", start=180, extent=60)
+        self.arc2 = self.canvas.create_arc(0,0,0,0, outline=COLOR_HUD, width=3, style="arc", start=90, extent=60)
         
-        # 3. Orta Kesikli Halka (Ters Dönüş)
-        self.mid_ring = self.canvas.create_oval(0,0,0,0, outline=COLOR_HUD, width=1, dash=(10, 20))
-        
-        # 4. İç Core (Altıgenimsi yapı simülasyonu için 2 arc)
-        self.core_arc1 = self.canvas.create_arc(0,0,0,0, outline=COLOR_LISTENING, width=5, style="arc", start=0, extent=120)
-        self.core_arc2 = self.canvas.create_arc(0,0,0,0, outline=COLOR_LISTENING, width=5, style="arc", start=180, extent=120)
 
         self.center_text = self.canvas.create_text(
             self.center_x, self.center_y, text="J.A.R.V.I.S.",
-            fill=COLOR_HUD, font=("Consolas", 10, "bold")
+            fill=COLOR_HUD, font=("Consolas", 15, "bold")
         )
 
         # Sağ Tık Menüsü (Ses Kontrolü için)
@@ -137,14 +130,13 @@ class JarvisApp(ctk.CTk):
         color = COLOR_HUD
         
         if self.is_speaking or self.in_conversation:
-            speed_mult = 4.0
             color = COLOR_LISTENING
         elif self.is_processing:
-            speed_mult = 2.0
+            speed_mult = 2.5
             color = COLOR_PROCESSING
 
         self.angle += 0.05 * speed_mult
-        self.pulse_val += 0.1 * speed_mult
+        self.pulse_val += 0.1
         pulse_scale = 1.0 + (math.sin(self.pulse_val) * 0.05)
         
         cx, cy = self.center_x, self.center_y
@@ -157,18 +149,8 @@ class JarvisApp(ctk.CTk):
         self.canvas.coords(self.arc2, cx-r1, cy-r1, cx+r1, cy+r1)
         self.canvas.itemconfig(self.arc2, start=self.angle*50 + 180, outline=color)
         
-        # 2. Orta Halka (Ters Dönüş hissi için dash offset simülasyonu olmasa da boyut değişimi)
-        r2 = 130 * pulse_scale
-        self.canvas.coords(self.mid_ring, cx-r2, cy-r2, cx+r2, cy+r2)
-        self.canvas.itemconfig(self.mid_ring, outline=color)
-        
         # 3. Core Arcları (Hızlı Dönüş)
-        r3 = 60 * (1.0 + math.sin(self.pulse_val*2)*0.1)
-        self.canvas.coords(self.core_arc1, cx-r3, cy-r3, cx+r3, cy+r3)
-        self.canvas.itemconfig(self.core_arc1, start=-self.angle*80, outline=color)
-        
-        self.canvas.coords(self.core_arc2, cx-r3, cy-r3, cx+r3, cy+r3)
-        self.canvas.itemconfig(self.core_arc2, start=-self.angle*80 + 180, outline=color)
+        r3 = 60 * (1.0 + math.sin(self.pulse_val)*0.1)
         
         self.canvas.itemconfig(self.center_text, fill=color)
 

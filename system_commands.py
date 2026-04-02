@@ -2,9 +2,9 @@ import webbrowser
 import subprocess
 import ctypes
 import os
-import platform
 import config
-from config import TARGET_DIR, DISCORD_PATH, BLENDER_PATH, HOLOGRAM_PATH, ZEN_PATH, ARM_CONTROL_PATH
+from config import TARGET_DIR, DISCORD_PATH, BLENDER_PATH, HOLOGRAM_PATH, ZEN_PATH
+from arm_controller import ArmController,arm
 
 import time
 
@@ -33,7 +33,6 @@ def search_web(query):
 
 import threading
 from audio_handler import speak, MusicPlayer
-
 class VolumeController:
     def __init__(self):
         self.player = MusicPlayer()
@@ -269,12 +268,18 @@ def _handle_single_command(query):
         hologram_dir = os.path.dirname(HOLOGRAM_PATH)
         subprocess.Popen(f'python "{HOLOGRAM_PATH}"', cwd=hologram_dir, shell=True)
         return "Blender ve Hologram arayüzü açılıyor efendim. Bugün ne üstünde çalışacaksınız?"
-
+    
+    
     # 7. MANUEL ARM KONTROL
-    if "manuel kontrol" in query or "manual kontrol" in query:
-        arm_dir = os.path.dirname(ARM_CONTROL_PATH)
-        subprocess.Popen(f'python "{ARM_CONTROL_PATH}"', cwd=arm_dir, shell=True)
-        return "Robot kol manuel kontrol modu aktif ediliyor efendim. Kamera hazırlanıyor."
+    if "uzan" in query or "uzat" in query:
+        arm.laydown()
+        return "Tabi."
+    if "doğrul" in query:
+        arm.dogrul()
+        return "Doğruluyorum."
+    if "rahatla" in query:
+        arm.home()
+        return "Rahatlıyorum."
 
     # 8. GEMINI HIZLI PROJE (Bağımsız)
     if "gemini" in query:
@@ -383,8 +388,5 @@ def _handle_single_command(query):
     if "proje modu" in query or ("yeni" in query and "proje" in query and "başlat" in query):
         project_creation_state = {"active": True, "step": 0, "folder_name": "", "description": ""}
         return "Proje oluşturma protokolü başlatıldı. Projenin ismi ne olsun efendim?"
-
-    return None
-
 
     return None
