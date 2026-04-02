@@ -20,16 +20,26 @@ from system_commands import execute_command, search_web, open_url, volume_manage
 
 # Singleton Check (Gereksiz süreçlerin birikmesini önlemek için)
 LOCK_FILE = os.path.join(tempfile.gettempdir(), "jarvis_v3.lock")
+_lock_file = None
 
 def is_already_running():
-    if os.path.exists(LOCK_FILE):
-        try:
-            os.remove(LOCK_FILE)
-        except:
-            return True
-    with open(LOCK_FILE, "w") as f:
-        f.write(str(os.getpid()))
-    return False
+    global _lock_file
+    try:
+        # Check if another process is currently holding the file lock
+        if os.path.exists(LOCK_FILE):
+            try:
+                os.remove(LOCK_FILE)
+            except (PermissionError, OSError):
+                return True
+        
+        # Open and keep the lock file open to prevent other instances
+        _lock_file = open(LOCK_FILE, "w")
+        _lock_file.write(str(os.getpid()))
+        _lock_file.flush()
+        return False
+    except Exception as e:
+        print(f"[SYSTEM] Lock error: {e}")
+        return False
 
 class JarvisApp(ctk.CTk):
     def __init__(self):
@@ -89,7 +99,7 @@ class JarvisApp(ctk.CTk):
         self.menu.add_command(label="Ses %30", command=lambda: volume_manager.set_volume(30))
         self.menu.add_command(label="Sessiz", command=lambda: volume_manager.set_volume(0))
         self.menu.add_separator()
-        self.menu.add_command(label="Çıkış", command=self.destroy)
+        self.menu.add_command(label="Çıkış", command=self.on_closing)
 
         self.bind("<Button-3>", self.show_menu)
 
@@ -122,6 +132,26 @@ class JarvisApp(ctk.CTk):
         
         self.bind_all("<r>", self.manual_interrupt)
         self.bind_all("<R>", self.manual_interrupt)
+
+        # Graceful Shutdown Protocol
+        self.protocol("WM_DELETE_WINDOW", self.on_closing)
+
+    def on_closing(self):
+        self.system_print("SHUTDOWN PROTOCOL INITIATED.")
+        self.stop_event.set()
+        self.in_conversation = False
+        
+        # Cleanup lock file
+        global _lock_file
+        if _lock_file:
+            try:
+                _lock_file.close()
+                if os.path.exists(LOCK_FILE):
+                    os.remove(LOCK_FILE)
+            except: pass
+            
+        self.destroy()
+        sys.exit(0)
 
     def animate_hud(self):
         import math
@@ -168,20 +198,27 @@ class JarvisApp(ctk.CTk):
             self.auth_user_id = None
 
     def start_telegram_loop(self):
+        self.system_print("TELEGRAM ASYNC CORE INITIALIZING...")
         try:
+            # Her zaman yeni bir loop oluştur ve Telegram'ı burada çalıştır
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             
             application = Application.builder().token(self.telegram_token).build()
             
-            # Handlerları ekle
             application.add_handler(CommandHandler("start", self.handle_telegram_start))
             application.add_handler(MessageHandler(filters.VOICE, self.handle_telegram_query))
             application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), self.handle_telegram_query))
             
-            application.run_polling(close_loop=False)
+            # Stop event tetiklenene kadar çalıştır
+            self.system_print("TELEGRAM REMOTE ACCESS PROTOCOL ONLINE.")
+            application.run_polling(close_loop=False, stop_signals=None)
         except Exception as e:
-            log(f"Telegram Loop Error: {e}")
+            log(f"Telegram Critical Error: {e}")
+            time.sleep(5)
+            # Hata durumunda yeniden başlatmayı dene (eğer uygulama kapanmıyorsa)
+            if not self.stop_event.is_set():
+                threading.Thread(target=self.start_telegram_loop, daemon=True).start()
 
     async def handle_telegram_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id = update.effective_user.id
@@ -431,9 +468,10 @@ class JarvisApp(ctk.CTk):
         try:
             with sr.Microphone(device_index=self.mic_index) as source:
                 recognizer.adjust_for_ambient_noise(source, duration=1.0)
-                while self.in_conversation:
+                while self.in_conversation and not self.stop_event.is_set():
                     try:
-                        audio = recognizer.listen(source, timeout=None, phrase_time_limit=10)
+                        # Add a timeout to listen() to allow periodic loop checks
+                        audio = recognizer.listen(source, timeout=5, phrase_time_limit=10)
                         query = transcribe_audio(audio)
                         if not query or len(query) < 3: continue
                         if any(phrase in query for phrase in ["m.k.", "altyazı", "altyazi"]): continue
@@ -441,35 +479,60 @@ class JarvisApp(ctk.CTk):
                         self.system_print(query, is_user=True)
                         if any(cmd in query for cmd in ["bay bay"]):
                             self.jarvis_speak("İyi günler efendim.")
-                            self.after(1000, self.destroy)
+                            self.after(1000, self.on_closing)
                             return
                         if any(cmd in query for cmd in ["uyu", "bekle"]):
                             self.jarvis_speak("Sistem bekleme modunda.")
                             self.in_conversation = False
                             break
                         self.process_query(query)
-                    except: continue
-        except: pass
+                    except sr.WaitTimeoutError:
+                        continue
+                    except Exception as e:
+                        log(f"Conversation Loop Error: {e}")
+                        continue
+        except Exception as e:
+            log(f"Mic Error in Conversation: {e}")
 
     def wake_word_listener(self):
         recognizer = sr.Recognizer()
         recognizer.energy_threshold = 5000
+        recognizer.dynamic_energy_threshold = False # Eşiği sabit tutalım ki dış sesle değişmesin
+        
         while not self.stop_event.is_set():
             if not self.in_conversation and not self.is_processing and not self.is_speaking:
                 try:
+                    # Mikrofonu her seferinde yeniden açmak yerine tek bir context içinde tutmayı deneyelim
                     with sr.Microphone(device_index=self.mic_index) as source:
-                        recognizer.adjust_for_ambient_noise(source, duration=0.5)
-                        try:
-                            audio = recognizer.listen(source, phrase_time_limit=2.5, timeout=None)
-                            text = transcribe_audio(audio)
-                            if text and ("jarvis") in text:
-                                self.jarvis_speak("Buyrun efendim.")
-                                self.in_conversation = True
-                                threading.Thread(target=self.conversation_loop, daemon=True).start()
-                        except: pass
-                except: time.sleep(2)
+                        # Gürültü ayarını sadece bir kez yapalım veya çok kısa tutalım
+                        recognizer.adjust_for_ambient_noise(source, duration=0.3)
+                        
+                        while not self.in_conversation and not self.is_processing and not self.is_speaking and not self.stop_event.is_set():
+                            try:
+                                # Daha kısa timeout ve limitler ile hızlı tepki
+                                audio = recognizer.listen(source, phrase_time_limit=2.0, timeout=5)
+                                text = transcribe_audio(audio)
+                                
+                                if text and "jarvis" in text.lower():
+                                    self.jarvis_speak("Buyrun efendim.")
+                                    self.in_conversation = True
+                                    threading.Thread(target=self.conversation_loop, daemon=True).start()
+                                    break # Conversation loop'a geçince bu iç döngüden çık
+                            except sr.WaitTimeoutError:
+                                continue # Sessizlik, devam et
+                            except Exception as e:
+                                log(f"Wake Word Inner Error: {e}")
+                                break # İç döngüden çık, mikrofonu tazele
+                except Exception as e:
+                    log(f"Mic Resetting... Error: {e}")
+                    time.sleep(1) # Mikrofon hatası durumunda bekle ve tekrar dene
+            else:
+                time.sleep(0.5) # Diğer işlemlerin bitmesini bekle
 
 if __name__ == "__main__":
     app = JarvisApp()
-    app.mainloop()
+    try:
+        app.mainloop()
+    except KeyboardInterrupt:
+        app.on_closing()
 

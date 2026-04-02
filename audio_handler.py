@@ -21,18 +21,30 @@ def find_mic_index():
     except: return None
 
 def transcribe_audio(audio_data):
+    if audio_data is None: return None
     try:
+        # Wav verisini alırken hata oluşursa yakala
+        try:
+            wav_data = audio_data.get_wav_data()
+        except:
+            return None
+
         with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_audio:
-            tmp_audio.write(audio_data.get_wav_data())
+            tmp_audio.write(wav_data)
             tmp_audio_path = tmp_audio.name
-        with open(tmp_audio_path, "rb") as file:
-            transcription = client_groq.audio.transcriptions.create(
-                file=(tmp_audio_path, file.read()),
-                model="whisper-large-v3-turbo",
-                language="tr", response_format="text"
-            )
-        if os.path.exists(tmp_audio_path): os.remove(tmp_audio_path)
-        return transcription.strip().lower()
+        
+        try:
+            with open(tmp_audio_path, "rb") as file:
+                transcription = client_groq.audio.transcriptions.create(
+                    file=(tmp_audio_path, file.read()),
+                    model="whisper-large-v3-turbo",
+                    language="tr", response_format="text"
+                )
+            return transcription.strip().lower()
+        finally:
+            if os.path.exists(tmp_audio_path): 
+                try: os.remove(tmp_audio_path)
+                except: pass
     except Exception as e:
         log(f"Transcription error: {e}")
         return None
