@@ -121,14 +121,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     await update.message.reply_text(f"Jarvis Uzaktan Erişim Sistemi Aktif.\nID'niz: {user_id}\nLütfen sesli bir komut verin efendim.")
 
-if __name__ == "__main__":
-    if not TELEGRAM_TOKEN:
-        print("Lütfen .env dosyası içinde TELEGRAM_TOKEN tanımlayın.")
-    else:
-        application = Application.builder().token(TELEGRAM_TOKEN).build()
-        application.add_handler(MessageHandler(filters.VOICE, handle_voice))
-        application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_voice)) # Yazılı da cevap verebilir
-        application.add_handler(MessageHandler(filters.COMMAND, start))
-        
-        print("Jarvis Telegram Botu Başlatılıyor...")
-        application.run_polling()
+# if __name__ == "__main__":
+#     if not TELEGRAM_TOKEN:
+#         print("Lütfen .env dosyası içinde TELEGRAM_TOKEN tanımlayın.")
+#     else:
+#         application = Application.builder().token(TELEGRAM_TOKEN).build()
+#         application.add_handler(MessageHandler(filters.VOICE, handle_voice))
+#         application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_voice)) # Yazılı da cevap verebilir
+#         application.add_handler(MessageHandler(filters.COMMAND, start))
+#         
+#         print("Jarvis Telegram Botu Başlatılıyor...")
+#         application.run_polling()

@@ -4,7 +4,7 @@ import ctypes
 import os
 import platform
 import config
-from config import TARGET_DIR, DISCORD_PATH, BLENDER_PATH, HOLOGRAM_PATH, ZEN_PATH
+from config import TARGET_DIR, DISCORD_PATH, BLENDER_PATH, HOLOGRAM_PATH, ZEN_PATH, ARM_CONTROL_PATH
 
 import time
 
@@ -269,6 +269,12 @@ def _handle_single_command(query):
         hologram_dir = os.path.dirname(HOLOGRAM_PATH)
         subprocess.Popen(f'python "{HOLOGRAM_PATH}"', cwd=hologram_dir, shell=True)
         return "Blender ve Hologram arayüzü açılıyor efendim. Bugün ne üstünde çalışacaksınız?"
+
+    # 7. MANUEL ARM KONTROL
+    if "manuel kontrol" in query or "manual kontrol" in query:
+        arm_dir = os.path.dirname(ARM_CONTROL_PATH)
+        subprocess.Popen(f'python "{ARM_CONTROL_PATH}"', cwd=arm_dir, shell=True)
+        return "Robot kol manuel kontrol modu aktif ediliyor efendim. Kamera hazırlanıyor."
 
     # 8. GEMINI HIZLI PROJE (Bağımsız)
     if "gemini" in query:

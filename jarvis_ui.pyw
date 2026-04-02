@@ -7,6 +7,7 @@ import tkinter as tk
 import os
 import asyncio
 import tempfile
+import sys
 from PIL import Image, ImageTk, ImageSequence
 from config import *
 from audio_handler import find_mic_index, transcribe_audio, speak, speak_edge_tts
@@ -14,12 +15,29 @@ import ai_brain
 from ai_brain import get_ai_response_stream
 from system_commands import execute_command, search_web, open_url
 from telegram import Update
-from telegram.ext import Application, MessageHandler, filters, ContextTypes
+from telegram.ext import Application, MessageHandler, filters, ContextTypes, CommandHandler
 from pydub import AudioSegment
 from system_commands import execute_command, search_web, open_url, volume_manager
 
+# Singleton Check (Gereksiz süreçlerin birikmesini önlemek için)
+LOCK_FILE = os.path.join(tempfile.gettempdir(), "jarvis_v3.lock")
+
+def is_already_running():
+    if os.path.exists(LOCK_FILE):
+        try:
+            os.remove(LOCK_FILE)
+        except:
+            return True
+    with open(LOCK_FILE, "w") as f:
+        f.write(str(os.getpid()))
+    return False
+
 class JarvisApp(ctk.CTk):
     def __init__(self):
+        if is_already_running():
+            print("[SYSTEM] Jarvis zaten çalışıyor. Yeni instance başlatılamadı.")
+            sys.exit()
+            
         super().__init__()
 
         self.load_env_vars()
@@ -173,12 +191,23 @@ class JarvisApp(ctk.CTk):
             asyncio.set_event_loop(loop)
             
             application = Application.builder().token(self.telegram_token).build()
+            
+            # Handlerları ekle
+            application.add_handler(CommandHandler("start", self.handle_telegram_start))
             application.add_handler(MessageHandler(filters.VOICE, self.handle_telegram_query))
             application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), self.handle_telegram_query))
             
             application.run_polling(close_loop=False)
         except Exception as e:
             log(f"Telegram Loop Error: {e}")
+
+    async def handle_telegram_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        user_id = update.effective_user.id
+        await update.message.reply_text(
+            f"Jarvis Uzaktan Erişim Sistemi Aktif.\n"
+            f"ID'niz: {user_id}\n"
+            f"Lütfen sesli veya yazılı bir komut verin efendim."
+        )
 
     async def handle_telegram_query(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         if self.auth_user_id and update.effective_user.id != self.auth_user_id:
@@ -451,7 +480,7 @@ class JarvisApp(ctk.CTk):
                         try:
                             audio = recognizer.listen(source, phrase_time_limit=2.5, timeout=None)
                             text = transcribe_audio(audio)
-                            if text and ("jarvis" or "jarvis orda mısın" or "babacık eve geldi") in text:
+                            if text and ("jarvis") in text:
                                 self.jarvis_speak("Buyrun efendim.")
                                 self.in_conversation = True
                                 threading.Thread(target=self.conversation_loop, daemon=True).start()
@@ -461,3 +490,4 @@ class JarvisApp(ctk.CTk):
 if __name__ == "__main__":
     app = JarvisApp()
     app.mainloop()
+

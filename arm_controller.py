@@ -7,6 +7,7 @@ from config import log
 class ArmController:
     _instance = None
     _lock = threading.Lock()
+    _serial_lock = threading.Lock()
 
     def __new__(cls):
         with cls._lock:
@@ -29,14 +30,16 @@ class ArmController:
     def _find_arduino_port(self):
         ports = serial.tools.list_ports.comports()
         for p in ports:
-            if "Arduino" in p.description or "CH340" in p.description or "USB-SERIAL" in p.description:
+            # Yaygın Arduino/CH340 isimlerini kontrol et
+            if any(desc in p.description for desc in ["Arduino", "CH340", "USB-SERIAL", "USB Serial"]):
                 return p.device
-        return "COM3" # Fallback
+        return "COM9" # Sistem logunda görünen port
 
     def _initialize_serial(self):
         try:
+            if self.ser: self.ser.close()
             self.ser = serial.Serial(self.port, self.baudrate, timeout=1)
-            time.sleep(2) # Wait for Arduino reset
+            time.sleep(2) # Reset sonrası bekleme
             self.is_connected = True
             log(f"ARM_CONTROLLER: Connected to {self.port}")
         except Exception as e:
@@ -44,32 +47,39 @@ class ArmController:
             self.is_connected = False
 
     def send_command(self, cmd, val=0):
-        if self.is_connected:
-            try:
-                msg = f"{cmd}{val}\n"
-                self.ser.write(msg.encode())
-            except:
-                self.is_connected = False
+        if self.is_connected and self.ser:
+            with self._serial_lock:
+                try:
+                    msg = f"{cmd}{val}\n"
+                    self.ser.write(msg.encode())
+                except:
+                    self.is_connected = False
 
     def move_base(self, angle): self.send_command('B', angle)
     def move_shoulder(self, angle): self.send_command('S', angle)
-    def move_wrist(self, angle): self.send_command('W', angle)
     def move_elbow_alt(self, angle): self.send_command('A', angle)
     def move_elbow_ust(self, angle): self.send_command('U', angle)
-    def move_grip(self, angle): self.send_command('G', angle)
     def home(self): self.send_command('H')
 
     def _talk_loop(self):
-        import random
+        # Konuşma başladığında dirsekleri ayarla
+        self.move_elbow_alt(60)
+        self.move_elbow_ust(120)
+        
+        base_angle = 90
+        step = 2 # Salınım hızı
+        
         while self.talking:
-            # Random subtle movements to look "alive" while speaking
-            self.send_command('T') # Trigger arduino-side talk gesture
-            time.sleep(0.5)
-            # Maybe some slight wrist/shoulder adjustments
-            if random.random() > 0.7:
-                self.move_shoulder(random.randint(155, 165))
-            if random.random() > 0.7:
-                self.move_base(random.randint(85, 95))
+            # Base yavaşça 45-135 arasında dönsün
+            self.move_base(base_angle)
+            base_angle += step
+            
+            if base_angle >= 135:
+                step = -2
+            elif base_angle <= 45:
+                step = 2
+                
+            time.sleep(0.05)
 
     def start_talking_animation(self):
         if not self.talking:

@@ -48,6 +48,7 @@ SPOTIFY_PATH = r"C:\Users\gok2\AppData\Roaming\Spotify\Spotify.exe"
 BLENDER_PATH = r"C:\Program Files\Blender Foundation\Blender 5.0\blender.exe"
 ZEN_PATH = r"C:\Program Files\Zen Browser\zen.exe"
 HOLOGRAM_PATH = os.path.join(TARGET_DIR, "hologram_editing", "main.py")
+ARM_CONTROL_PATH = os.path.join(TARGET_DIR, "jarvis_s_video_proccessing", "arm_gesture_control.py")
 
 # Launcher Paths
 LAUNCHER_PATHS = {
