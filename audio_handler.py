@@ -5,6 +5,7 @@ import asyncio
 import edge_tts
 import speech_recognition as sr
 from config import client_eleven, client_groq, log
+from arm_controller import arm
 
 # Windows Ses Kontrolü İçin
 from ctypes import cast, POINTER
@@ -66,6 +67,9 @@ def speak(text, interrupt_check_callback):
 
         if os.path.exists(tmp_path) and os.path.getsize(tmp_path) > 0:
             pygame.mixer.music.load(tmp_path)
+            
+            # Kol Hareketini Başlat
+            arm.start_talking_animation()
             pygame.mixer.music.play()
             
             while pygame.mixer.music.get_busy() and not interrupt_check_callback():
@@ -73,10 +77,15 @@ def speak(text, interrupt_check_callback):
             
             pygame.mixer.music.stop()
             pygame.mixer.music.unload()
+            
+            # Kol Hareketini Durdur
+            arm.stop_talking_animation()
+
             try: os.remove(tmp_path)
             except: pass
     except Exception as e:
         log(f"AUDIO_ERR: {e}")
+        arm.stop_talking_animation()
 
 def provide_voice_feedback(message):
     # Utilizing the existing speak function for voice feedback

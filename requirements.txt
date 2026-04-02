@@ -16,3 +16,4 @@ pydub
 httpx
 anyio
 httpcore
+pyserial
