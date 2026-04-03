@@ -2,6 +2,7 @@ import webbrowser
 import subprocess
 import ctypes
 import os
+import sys
 import config
 from config import TARGET_DIR, DISCORD_PATH, BLENDER_PATH, HOLOGRAM_PATH, ZEN_PATH
 from arm_controller import ArmController,arm
@@ -57,7 +58,6 @@ def run_gemini_integrated(project_path, prompt, folder_name):
                 f.write(prompt)
             
             # PowerShell'e dosyayı okuyup Gemini'ye iletmesini söyleyen komut
-            # -Raw bayrağı tüm dosyayı tek bir string olarak okur (satır sonlarını korur)
             full_command = f'powershell -NoProfile -ExecutionPolicy Bypass -Command "$p = Get-Content -Path \'{temp_prompt_file}\' -Raw; gemini --yolo -p $p"'
             
             process = subprocess.Popen(
@@ -71,7 +71,7 @@ def run_gemini_integrated(project_path, prompt, folder_name):
                 errors='replace'
             )
 
-            # Çıktıyı terminale yazdır (izleme için)
+            # Çıktıyı terminale yazdır
             if process.stdout:
                 for line in iter(process.stdout.readline, ''):
                     print(f"[{folder_name}]: {line.strip()}")
@@ -83,19 +83,38 @@ def run_gemini_integrated(project_path, prompt, folder_name):
                 os.remove(temp_prompt_file)
             
             # İşlem bittiğinde sesli bildirim yap
-            finish_msg = f"Efendim, {folder_name} projesinin kodlama işlemleri tamamlandı. Dosyalar hazır."
+            if folder_name == "jarvis-self-improvement":
+                finish_msg = "Efendim, sistem çekirdeği güncellendi. Yeni özelliklerin devreye girmesi için sistemi yeniden başlatıyorum."
+            else:
+                finish_msg = f"Efendim, {folder_name} projesinin kodlama işlemleri tamamlandı. Dosyalar hazır."
+            
             print(f"\n[SYSTEM]: {finish_msg}")
             speak(finish_msg, lambda: False)
 
-            # Telegram bildirimi gönder (Circular import önlemek için lokal import)
+            # Telegram bildirimi gönder
             try:
                 from telegram_bridge import send_telegram_notification
                 send_telegram_notification(finish_msg)
             except Exception as te:
                 print(f"[ERROR]: Telegram bildirimi gönderilirken hata: {te}")
+
+            # SELF-IMPROVEMENT DURUMUNDA YENİDEN BAŞLATMA
+            if folder_name == "jarvis-self-improvement":
+                print("[SYSTEM]: Uygulama yeniden başlatılıyor...")
+                time.sleep(2) # Sesli bildirimin duyulması için kısa bir bekleme
+                
+                # Mevcut Python yorumlayıcısını ve script yolunu kullanarak yeni süreç başlat
+                # Bu yöntem mevcut süreci yenisiyle değiştirir (Windows'ta subprocess + sys.exit daha yaygındır)
+                if sys.executable.endswith("pythonw.exe"):
+                    # GUI modu (jarvis_ui.pyw)
+                    subprocess.Popen([sys.executable, sys.argv[0]])
+                else:
+                    # Konsol modu
+                    subprocess.Popen([sys.executable] + sys.argv)
+                
+                os._exit(0) # Hemen çıkış yap
             
         except Exception as e:
-            # Hata durumunda da temizlik yapmaya çalış
             if os.path.exists(temp_prompt_file):
                 os.remove(temp_prompt_file)
             
