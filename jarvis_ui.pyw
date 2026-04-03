@@ -91,6 +91,11 @@ class JarvisApp(ctk.CTk):
             fill=COLOR_HUD, font=("Consolas", 15, "bold")
         )
 
+        self.applause_feedback_text = self.canvas.create_text(
+            self.center_x, self.center_y + 40, text="",
+            fill="#FFD700", font=("Consolas", 12, "bold")
+        )
+
         # Sağ Tık Menüsü (Ses Kontrolü için)
         self.menu = tk.Menu(self, tearoff=0, bg="black", fg=COLOR_HUD, activebackground=COLOR_HUD, activeforeground="black")
         self.menu.add_command(label="Ses %100", command=lambda: volume_manager.set_volume(100))
@@ -494,10 +499,17 @@ class JarvisApp(ctk.CTk):
         except Exception as e:
             log(f"Mic Error in Conversation: {e}")
 
+    def show_applause_feedback(self):
+        """Visual feedback for applause detection."""
+        self.canvas.itemconfig(self.applause_feedback_text, text="👏 ALKIŞ ALGILANDI 👏")
+        self.after(2000, lambda: self.canvas.itemconfig(self.applause_feedback_text, text=""))
+
     def wake_word_listener(self):
         recognizer = sr.Recognizer()
         recognizer.energy_threshold = 5000
         recognizer.dynamic_energy_threshold = False # Eşiği sabit tutalım ki dış sesle değişmesin
+        
+        last_applause_time = 0
         
         while not self.stop_event.is_set():
             if not self.in_conversation and not self.is_processing and not self.is_speaking:
@@ -511,10 +523,23 @@ class JarvisApp(ctk.CTk):
                             try:
                                 # Daha kısa timeout ve limitler ile hızlı tepki
                                 audio = recognizer.listen(source, phrase_time_limit=2.0, timeout=5)
+                                
+                                # Check for applause wake word
+                                current_time = time.time()
+                                if current_time - last_applause_time > APPLAUSE_COOLDOWN:
+                                    if ai_brain.wake_word_applause(audio):
+                                        last_applause_time = current_time
+                                        self.system_print("APPLAUSE DETECTED", is_ai=True)
+                                        self.show_applause_feedback()
+                                        self.jarvis_speak("Evet?")
+                                        self.in_conversation = True
+                                        threading.Thread(target=self.conversation_loop, daemon=True).start()
+                                        break
+
                                 text = transcribe_audio(audio)
                                 
                                 if text and "jarvis" in text.lower():
-                                    self.jarvis_speak("Buyrun efendim.")
+                                    self.jarvis_speak("Evet?")
                                     self.in_conversation = True
                                     threading.Thread(target=self.conversation_loop, daemon=True).start()
                                     break # Conversation loop'a geçince bu iç döngüden çık

@@ -165,7 +165,7 @@ def _handle_single_command(query):
         "versel": "https://vercel.com", 
         "şirket": "https://prometh-labs.vercel.app/"
     }
-    
+
     for site, url in sites.items():
         if site in query and ("aç" in query or "git" in query):
             open_url(url)

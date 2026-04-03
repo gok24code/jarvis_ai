@@ -62,6 +62,9 @@ pygame.mixer.init()
 DEFAULT_VOLUME = 0.5  # %50 varsayılan ses seviyesi
 pygame.mixer.music.set_volume(DEFAULT_VOLUME)
 
+# Applause Detection Config
+APPLAUSE_THRESHOLD = 0.6  # Sensitivity threshold for applause detection
+APPLAUSE_COOLDOWN = 1.5   # Cooldown between detections in seconds
 DEBUG = True
 
 def log(message):

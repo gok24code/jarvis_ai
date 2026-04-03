@@ -4,8 +4,9 @@ J.A.R.V.I.S. (Just A Rather Very Intelligent System), Iron Man'den esinlenilerek
 
 ## 🚀 Özellikler
 
-- **Sesli Aktivasyon:** "Jarvis" uyandırma kelimesi ile tetikleme.
+- **Sesli Aktivasyon:** "Jarvis" uyandırma kelimesi veya **alkış sesi (applause)** ile tetikleme.
 - **Gelişmiş Zeka:** Groq üzerinden **Llama 3.3 70B Versatile** modeli ile akıcı ve karakter sahibi sohbetler.
+- **Özel Komutlar:** "Jarvis'in dinlediği" gibi özel sesli komutlarla Spotify veya sistem durumu hakkında bilgi alma.
 - **Yüksek Kaliteli Ses:** **ElevenLabs** (V2 Multilingual) ile doğal seslendirme, internet olmadığında **Edge-TTS** (AhmetNeural) ile otomatik yedekleme.
 - **Anlık Transkripsiyon:** **Whisper-large-v3-turbo** ile düşük gecikmeli ses algılama.
 - **Gemini CLI Entegrasyonu:** Sesli komutla yeni proje klasörleri oluşturma ve Gemini'ye detaylı teknik talimatlar ileterek geliştirme sürecini başlatma.
@@ -59,6 +60,8 @@ _Not: `pyaudio` yüklemesi sırasında sorun yaşarsanız, Windows için uygun `
 ## ⌨️ Kısayollar ve Kontrol
 
 - **"Jarvis"**: Sistemi dinleme moduna geçirir.
+- **Alkış (Applause)**: Sistemi dinleme moduna geçirir ve görsel geri bildirim verir.
+- **"Jarvis'in dinlediği"**: Mevcut sistem/Spotify durumu hakkında bilgi verir.
 - **'R' Tuşu**: Konuşmayı o anda keser ve sistemi bekleme moduna resetler.
 - **"Gemini [Proje Tanımı] yap/aç"**: Belirtilen proje için klasör oluşturur ve Gemini'yi teknik talimatlarla başlatır.
 - **"Beklemede Kal / Güle Güle"**: Aktif konuşmayı bitirir ancak arka planda dinlemeye devam eder.

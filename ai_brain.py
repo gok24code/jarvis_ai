@@ -17,6 +17,14 @@ def process_user_command(command):
         system_commands.launch_epic_games()
         audio_handler.provide_voice_feedback("Epic Games Launcher launched. Entering game mode.")
 
+def wake_word_applause(audio_data):
+    """
+    Checks for applause sound and returns True if detected.
+    This integrates with the wake word system.
+    """
+    is_applause = audio_handler.applause_detection(audio_data)
+    return is_applause
+
 def send_whatsapp_message(recipient_name_or_alias, message_text):
     """
     Sends a WhatsApp message using the WhatsAppHandler and PersonPool.

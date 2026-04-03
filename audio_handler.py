@@ -4,7 +4,9 @@ import pygame
 import asyncio
 import edge_tts
 import speech_recognition as sr
-from config import client_eleven, client_groq, log
+import struct
+import math
+from config import client_eleven, client_groq, log, APPLAUSE_THRESHOLD
 from arm_controller import arm
 
 # Windows Ses Kontrolü İçin
@@ -19,6 +21,34 @@ def find_mic_index():
             if "steelseries" in name.lower(): return index
         return None
     except: return None
+
+def applause_detection(audio_data):
+    """
+    Simple applause detection using RMS (root mean square) to identify loud/sharp sounds.
+    """
+    if audio_data is None: return False
+    try:
+        # Get raw audio data (PCM)
+        raw_data = audio_data.get_raw_data(convert_rate=16000, convert_width=2)
+        
+        # Unpack binary data to short integers
+        count = len(raw_data) // 2
+        format_string = f"<{count}h"
+        shorts = struct.unpack(format_string, raw_data)
+        
+        # Calculate RMS
+        sum_squares = sum(s**2 for s in shorts)
+        rms = math.sqrt(sum_squares / count)
+        
+        # Normalize RMS (for 16-bit audio, max is 32767)
+        normalized_rms = rms / 32768.0
+        
+        # log(f"Detection RMS: {normalized_rms:.4f}")
+        
+        return normalized_rms > APPLAUSE_THRESHOLD
+    except Exception as e:
+        log(f"Applause Detection Error: {e}")
+        return False
 
 def transcribe_audio(audio_data):
     if audio_data is None: return None
